@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  dynamodb-local:
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    image: "amazon/dynamodb-local:latest"
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    working_dir: /home/dynamodblocal
+    healthcheck:
+      test: "curl http://localhost:8000 || exit 1"
+      interval: 2s
+      timeout: 1s
+      retries: 5
+
+  dynamodb-initializer:
+    image: "amazon/aws-cli:latest" # https://github.com/aws/aws-cli/blob/v2/docker/Dockerfile
+    container_name: dynamodb-initializer
+    ports:
+      - "8002:8080"
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    volumes:
+      - ./local-env/setup-dynamodb.sh:/usr/local/bin/setup-dynamodb.sh
+    entrypoint: # 無理やり上書きして shellscript を実行
+      /bin/bash -c 'chmod +x /usr/local/bin/setup-dynamodb.sh && sh /usr/local/bin/setup-dynamodb.sh'
+
+  dynamodb-admin:
+    image: "aaronshaf/dynamodb-admin:latest"
+    container_name: dynamodb-admin
+    environment:
+      - DYNAMO_ENDPOINT=dynamodb-local:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - dynamodb-local
