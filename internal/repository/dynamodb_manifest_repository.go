@@ -1,6 +1,6 @@
 package repository
 
-import "github.com/a-takamin/tcr/model"
+import "github.com/a-takamin/tcr/internal/model"
 
 type DynamoDBManifestRepository struct {
 }

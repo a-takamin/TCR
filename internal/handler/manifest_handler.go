@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/a-takamin/tcr/service"
+	"github.com/a-takamin/tcr/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

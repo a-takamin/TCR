@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/a-takamin/tcr/handler"
-	"github.com/a-takamin/tcr/repository"
-	"github.com/a-takamin/tcr/service"
+	"github.com/a-takamin/tcr/internal/handler"
+	"github.com/a-takamin/tcr/internal/repository"
+	"github.com/a-takamin/tcr/internal/service"
 	"github.com/gin-gonic/gin"
 )
 

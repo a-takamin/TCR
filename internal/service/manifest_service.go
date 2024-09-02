@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/a-takamin/tcr/interface/persister"
-	"github.com/a-takamin/tcr/model"
+	"github.com/a-takamin/tcr/internal/interface/persister"
+	"github.com/a-takamin/tcr/internal/model"
 )
 
 type ManifestService struct {

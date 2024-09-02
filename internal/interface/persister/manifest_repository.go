@@ -1,7 +1,7 @@
 package persister
 
 import (
-	"github.com/a-takamin/tcr/model"
+	"github.com/a-takamin/tcr/internal/model"
 )
 
 type ManifestPersister interface {
