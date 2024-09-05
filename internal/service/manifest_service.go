@@ -22,7 +22,6 @@ func (s ManifestService) GetManifest(metadata model.ManifestMetadata) (model.Man
 
 	manifest, err := s.repo.GetManifest(metadata)
 	if err != nil {
-		// 空だったら 404 を返す実装を追加する。空以外のエラーもあるので注意。
 		return model.Manifest{}, err
 	}
 

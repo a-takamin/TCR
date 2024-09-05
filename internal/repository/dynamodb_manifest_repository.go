@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/a-takamin/tcr/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -80,6 +81,10 @@ func (r ManifestRepository) GetManifest(metadata model.ManifestMetadata) (model.
 		return model.Manifest{}, err
 	}
 
+	if len(resp.Item) == 0 {
+		return model.Manifest{}, apperrors.ErrManifestNotFound
+	}
+
 	var manifest Manifest
 	err = attributevalue.UnmarshalMap(resp.Item, &manifest)
 	if err != nil {
@@ -121,8 +126,7 @@ func (r ManifestRepository) GetManifestByTag(metadata model.ManifestMetadata) (m
 	}
 
 	if len(manifests) < 1 {
-		// TODO: make an error code
-		return model.Manifest{}, errors.New("no manifest exists")
+		return model.Manifest{}, apperrors.ErrManifestNotFound
 	}
 	manifest := manifests[0]
 	return r.createManifestGetResponse(manifest)

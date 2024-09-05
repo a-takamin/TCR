@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/a-takamin/tcr/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service"
+	"github.com/a-takamin/tcr/internal/service/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,9 +34,19 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
 
 	manifest, err := h.service.GetManifest(metadata)
 	if err != nil {
+		if errors.Is(err, apperrors.ErrManifestNotFound) {
+			c.JSON(http.StatusNotFound, err)
+			return
+		}
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
+
+	digest, err := utils.CalcManifestDigest(manifest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err)
+	}
+	c.Header("Docker-Content-Digest", digest)
 	c.JSON(http.StatusOK, manifest)
 }
 
