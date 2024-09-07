@@ -3,5 +3,17 @@
   // 既存の属性の説明をホバーして表示します。
   // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
-  "configurations": []
+  "configurations": [
+    {
+      "name": "debug mode",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}",
+      "env": {
+        "AWS_ACCESS_KEY_ID": "fake",
+        "AWS_SECRET_ACCESS_KEY": "fakefake"
+      }
+    }
+  ]
 }
