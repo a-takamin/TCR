@@ -18,7 +18,7 @@ erDiagram
     BlobUpload {
         string Name "コンテナイメージの名前空間"
         int ByteUploaded "アップロード済みのバイト数"
-        int ByteTotal "Blobの総バイト数"
         int NextChunkNo "次のチャンク番号"
+        boolean Done "すべてのチャンクがアップロードされたかどうか"
     }
 ```
