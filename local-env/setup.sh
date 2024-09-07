@@ -32,6 +32,20 @@ aws dynamodb create-table \
         }
       ]'
 
+aws dynamodb create-table \
+  --region \
+      ap-northeast-1 \
+  --endpoint-url \
+      http://dynamodb-local:8000 \
+  --table-name \
+      blob-upload-progress \
+  --attribute-definitions \
+      AttributeName=Name,AttributeType=S \
+  --key-schema \
+      AttributeName=Name,KeyType=HASH \
+  --billing-mode \
+      PAY_PER_REQUEST 
+
 aws s3api create-bucket \
   --region \
       ap-northeast-1 \

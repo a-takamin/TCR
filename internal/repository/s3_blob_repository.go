@@ -6,12 +6,17 @@ import (
 
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type BlobRepository struct {
 	client     *s3.Client
+	dClient    *dynamodb.Client
 	bucketName string
+	tableName  string
 }
 
 type Blob struct {
@@ -20,10 +25,12 @@ type Blob struct {
 	Blob   string
 }
 
-func NewBlobRepository(client *s3.Client, tableName string) *BlobRepository {
+func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dynamodb.Client, tableName string) *BlobRepository {
 	return &BlobRepository{
 		client:     client,
-		bucketName: tableName,
+		bucketName: bucketName,
+		dClient:    dynamodbClient,
+		tableName:  tableName,
 	}
 }
 
@@ -36,6 +43,40 @@ func (r BlobRepository) UploadBlob(metadata model.BlobUploadMetadata, blob io.Re
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(metadata.Key),
 	})
+	return err
+}
+
+func (r BlobRepository) GetChunkedBlobUploadProgress(name string) (model.BlobUploadProgress, error) {
+	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"Name": &types.AttributeValueMemberS{
+				Value: name,
+			},
+		},
+	})
+	if err != nil {
+		return model.BlobUploadProgress{}, err
+	}
+
+	var progress model.BlobUploadProgress
+	err = attributevalue.UnmarshalMap(resp.Item, &progress)
+	if err != nil {
+		return model.BlobUploadProgress{}, err
+	}
+	return progress, nil
+}
+
+func (r BlobRepository) PutChunkedBlobUpdateProgress(newProgress model.BlobUploadProgress) error {
+	item, err := attributevalue.MarshalMap(newProgress)
+	if err != nil {
+		return err
+	}
+	_, err = r.dClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(r.tableName),
+		Item:      item,
+	})
+
 	return err
 }
 

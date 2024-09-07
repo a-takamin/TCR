@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/a-takamin/tcr/apperrors"
@@ -73,16 +74,46 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context) {
 		ContentLength: c.Request.ContentLength,
 		ContentRange:  c.Request.Header.Get("Content-Range"),
 		ContentType:   c.ContentType(),
+		IsChunkUpload: false,
 	}
 
 	var err error
 
 	if metadata.ContentRange == "" {
-		err = h.service.UploadBlobMonolithically(metadata, bodyStream)
+		err = h.service.UploadBlob(metadata, bodyStream)
 	} else {
 		// err = h.service.CompleteUploadBlob()
 	}
 	if err != nil {
 		c.JSON(http.StatusBadRequest, "")
 	}
+	c.JSON(http.StatusCreated, "")
+}
+
+func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context) {
+	name := c.Param("name")
+	uuid := c.Param("uuid")
+	body := c.Request.Body
+
+	metadata := model.BlobUploadMetadata{
+		Name:          name,
+		Uuid:          uuid,
+		ContentLength: c.Request.ContentLength,
+		ContentRange:  c.Request.Header.Get("Content-Range"),
+		ContentType:   c.ContentType(),
+		IsChunkUpload: true,
+	}
+
+	c.Header("Location", c.Request.URL.Path)
+	c.Header("Content-Length", "0")
+	c.Header("Docker-Upload-UUID", uuid)
+
+	offset, err := h.service.UploadChunkedBlob(metadata, body)
+	if err != nil {
+		c.Header("Range", fmt.Sprintf("0-%d", offset))
+		c.JSON(http.StatusRequestedRangeNotSatisfiable, "")
+	}
+
+	c.Header("Range", fmt.Sprintf("bytes=0-%d", offset))
+	c.JSON(http.StatusAccepted, "")
 }

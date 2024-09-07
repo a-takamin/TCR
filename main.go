@@ -27,7 +27,7 @@ func main() {
 	}
 
 	mRepo := repository.NewManifestRepository(dynamodbClient, "dynamodb-local-table")
-	bRepo := repository.NewBlobRepository(s3Client, "blob-local")
+	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, "blob-upload-progress")
 	ms := service.NewManifestService(mRepo)
 	bs := service.NewBlobService(bRepo)
 
@@ -41,6 +41,7 @@ func main() {
 	r.GET("/v2/:name/blobs/:digest", bh.GetBlobHandler)
 	r.POST("/v2/:name/blobs/uploads", bh.StartUploadBlobHandler)
 	r.PUT("/v2/:name/blobs/uploads/:uuid", bh.UploadBlobHandler)
+	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler)
 
 	r.Run(":8080")
 

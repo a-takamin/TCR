@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
+	"github.com/a-takamin/tcr/apperrors"
 	"github.com/a-takamin/tcr/internal/interface/persister"
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service/utils"
@@ -45,36 +48,88 @@ func (s BlobService) StartBlobUpload(name string) (string, error) {
 	return fmt.Sprintf("/v2/%s/blobs/uploads/%s", name, uid), nil
 }
 
-func (s BlobService) UploadBlob() error {
-	return nil
-}
-
-func (s BlobService) UploadBlobMonolithically(metadata model.BlobUploadMetadata, blob io.ReadCloser) error {
+func (s BlobService) UploadBlob(metadata model.BlobUploadMetadata, blob io.ReadCloser) error {
 	err := utils.ValidateName(metadata.Name)
 	if err != nil {
 		return err
 	}
+
+	if metadata.IsChunkUpload {
+		info, err := s.repo.GetChunkedBlobUploadProgress(metadata.Name)
+		if err != nil {
+			return err
+		}
+		ranges := strings.Split(metadata.ContentRange, "-")
+		if len(ranges) != 2 {
+			return errors.New("Content-Range format is invalid")
+		}
+		if ranges[0] != string(info.ByteUploaded) {
+			return apperrors.ErrChunkIsNotInSequence
+		}
+		metadata.Key = fmt.Sprintf("/chunk/%s/%s", metadata.Uuid, string(info.NextChunkNo))
+		err = s.repo.UploadBlob(metadata, blob)
+		if err != nil {
+			return err
+		}
+		// update
+		info.NextChunkNo++
+		info.ByteUploaded += metadata.ContentLength
+		info.Done = false
+		err = s.repo.PutChunkedBlobUpdateProgress(info)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Monolithic upload must contain digest
 	if !utils.IsDigest(metadata.Digest) {
 		return errors.New("digest is invalid")
 	}
 
-	metadata.Key = s.CreateKey(metadata)
+	metadata.Key = metadata.Uuid
 
 	err = s.repo.UploadBlob(metadata, blob)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func (s BlobService) CreateKey(metadata model.BlobUploadMetadata) string {
-	if metadata.IsChunkUpload {
-		// 次のチャンクの順番IDを取得してセット
-		var chunkId string
-		return fmt.Sprintf("/chunk/%s/%s", metadata.Uuid, chunkId)
-
+func (s BlobService) UploadChunkedBlob(metadata model.BlobUploadMetadata, blob io.ReadCloser) (int64, error) {
+	err := utils.ValidateName(metadata.Name)
+	if err != nil {
+		return 0, err
 	}
-	return metadata.Uuid
+
+	info, err := s.repo.GetChunkedBlobUploadProgress(metadata.Name)
+	if err != nil {
+		return 0, err
+	}
+	ranges := strings.Split(metadata.ContentRange, "-")
+	if len(ranges) != 2 {
+		return info.ByteUploaded, errors.New("Content-Range format is invalid")
+	}
+
+	if ranges[0] != strconv.FormatInt(info.ByteUploaded, 10) {
+		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+	}
+	metadata.Key = fmt.Sprintf("/chunk/%s/%d", metadata.Uuid, info.NextChunkNo)
+	err = s.repo.UploadBlob(metadata, blob)
+	if err != nil {
+		return info.ByteUploaded, err
+	}
+	// update
+	info.Name = metadata.Name
+	info.NextChunkNo++
+	info.ByteUploaded += metadata.ContentLength
+	info.Done = false
+	err = s.repo.PutChunkedBlobUpdateProgress(info)
+	if err != nil {
+		// 今回の分を戻す
+		return info.ByteUploaded - metadata.ContentLength, err
+	}
+	return info.ByteUploaded, err
 }
 
 // func (s BlobService) PutBlob(metadata model.BlobMetadata, blob model.Blob) error {

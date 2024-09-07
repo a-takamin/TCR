@@ -9,6 +9,8 @@ import (
 type BlobPersister interface {
 	GetBlob(metadata model.BlobMetadata) (model.Blob, error)
 	UploadBlob(metadata model.BlobUploadMetadata, blob io.Reader) error
+	GetChunkedBlobUploadProgress(name string) (model.BlobUploadProgress, error)
+	PutChunkedBlobUpdateProgress(newProgress model.BlobUploadProgress) error
 	// PutBlob(metadata model.BlobMetadata, manifest model.Blob) error
 	// DeleteBlob(metadata model.BlobMetadata) error
 }
