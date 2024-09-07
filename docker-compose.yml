@@ -13,18 +13,20 @@ services:
       timeout: 1s
       retries: 5
 
-  dynamodb-initializer:
+  local-env-initializer:
     image: "amazon/aws-cli:latest" # https://github.com/aws/aws-cli/blob/v2/docker/Dockerfile
-    container_name: dynamodb-initializer
+    container_name: local-env-initializer
     ports:
       - "8002:8080"
     depends_on:
       dynamodb-local:
         condition: service_healthy
+      s3-local:
+        condition: service_healthy
     volumes:
-      - ./local-env/setup-dynamodb.sh:/usr/local/bin/setup-dynamodb.sh
-    entrypoint: # 無理やり上書きして shellscript を実行
-      /bin/bash -c 'chmod +x /usr/local/bin/setup-dynamodb.sh && sh /usr/local/bin/setup-dynamodb.sh'
+      - ./local-env/setup.sh:/usr/local/bin/setup.sh
+    entrypoint: /bin/bash # 無理やり上書きして shellscript を実行
+    command: -c 'chmod +x /usr/local/bin/setup.sh && sh /usr/local/bin/setup.sh'
 
   dynamodb-admin:
     image: "aaronshaf/dynamodb-admin:latest"
@@ -35,3 +37,19 @@ services:
       - "8001:8001"
     depends_on:
       - dynamodb-local
+
+  s3-local:
+    image: minio/minio:latest # minio という S3 互換のサービスを利用。代替は LocalStack
+    container_name: s3-local
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      - MINIO_ROOT_USER=fake
+      - MINIO_ROOT_PASSWORD=fakefake # at least 8
+    command: server /data --console-address ":9001" # 永続化はしない 
+    healthcheck:
+      test: "curl http://localhost:9001 || exit 1" # API 用の 9000 にはクレデンシャルが必要なので WebUI のヘルスチェックで無理やり代用
+      interval: 2s
+      timeout: 1s
+      retries: 5
