@@ -105,7 +105,7 @@ func (r ManifestRepository) createManifestGetInputByTag(tag string) (*dynamodb.Q
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
-		IndexName:                 aws.String("ManifestDigestIndex"),
+		IndexName:                 aws.String("ManifestTagIndex"),
 	}, nil
 }
 

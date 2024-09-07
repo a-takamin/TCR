@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -22,14 +21,15 @@ func CalcManifestDigest(manifest model.Manifest) (string, error) {
 
 func IsDigest(digestLike string) bool {
 	arr := strings.Split(digestLike, ":")
-	log.Println(arr)
 	var str string
 	str = arr[0]
 	if len(arr) > 1 {
 		str = arr[1]
 	}
-	log.Println(str)
 	matched, _ := regexp.MatchString(`^[a-f0-9]{64}$`, str)
-	log.Println("isDigest: ", matched)
 	return matched
+}
+
+func CalcBlobDigest(blob model.Blob) (string, error) {
+	return "", nil
 }
