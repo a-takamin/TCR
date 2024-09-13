@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/a-takamin/tcr/apperrors"
-	"github.com/a-takamin/tcr/internal/model"
-	"github.com/a-takamin/tcr/internal/service"
-	"github.com/a-takamin/tcr/internal/service/utils"
+	"github.com/a-takamin/tcr/internal/apperrors"
+	"github.com/a-takamin/tcr/internal/dto"
+	"github.com/a-takamin/tcr/internal/service/usecase"
 	"github.com/gin-gonic/gin"
 )
 
 type BlobHandler struct {
-	service *service.BlobService
+	usecase *usecase.BlobUseCase
 }
 
-func NewBlobHandler(s *service.BlobService) *BlobHandler {
+func NewBlobHandler(s *usecase.BlobUseCase) *BlobHandler {
 	return &BlobHandler{
-		service: s,
+		usecase: s,
 	}
 }
 
@@ -26,12 +25,12 @@ func (h *BlobHandler) GetBlobHandler(c *gin.Context) {
 	name := c.Param("name")
 	digest := c.Param("digest")
 
-	metadata := model.BlobMetadata{
+	metadata := dto.GetBlobInput{
 		Name:   name,
 		Digest: digest,
 	}
 
-	blob, err := h.service.GetBlob(metadata)
+	blob, err := h.usecase.GetBlob(metadata)
 	if err != nil {
 		if errors.Is(err, apperrors.ErrBlobNotFound) {
 			c.JSON(http.StatusNotFound, err)
@@ -41,17 +40,13 @@ func (h *BlobHandler) GetBlobHandler(c *gin.Context) {
 		return
 	}
 
-	blobDigest, err := utils.CalcBlobDigest(blob)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-	c.Header("Docker-Content-Digest", blobDigest)
+	c.Header("Docker-Content-Digest", digest)
 	c.JSON(http.StatusOK, blob)
 }
 
 func (h *BlobHandler) StartUploadBlobHandler(c *gin.Context) {
 	name := c.Param("name")
-	redirectUrl, err := h.service.StartBlobUpload(name)
+	redirectUrl, err := h.usecase.StartBlobUpload(name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err)
 		return
@@ -65,50 +60,84 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context) {
 	name := c.Param("name")
 	uuid := c.Param("uuid")
 	digest := c.Query("digest")
+	ContentLength := c.Request.ContentLength
+	ContentRange := c.Request.Header.Get("Content-Range")
+	ContentType := c.ContentType()
 	bodyStream := c.Request.Body
 
-	metadata := model.BlobUploadMetadata{
+	if ContentRange == "" {
+		// Monolithic Upload
+		input := dto.UploadMonolithicBlobInput{
+			Name:          name,
+			Uuid:          uuid,
+			Digest:        digest,
+			ContentLength: ContentLength,
+			ContentType:   ContentType,
+			Blob:          bodyStream,
+		}
+		err := h.usecase.UploadMonolithicBlob(input)
+		if err != nil {
+			// TODO: http status code
+			c.JSON(http.StatusInternalServerError, "")
+			return
+		}
+		// TODO: http status code
+		c.JSON(http.StatusCreated, "")
+		return
+	}
+
+	// Last Chunked Blob Upload
+	input := dto.UploadChunkedBlobInput{
 		Name:          name,
 		Uuid:          uuid,
 		Digest:        digest,
-		ContentLength: c.Request.ContentLength,
-		ContentRange:  c.Request.Header.Get("Content-Range"),
-		ContentType:   c.ContentType(),
-		IsChunkUpload: false,
+		ContentLength: ContentLength,
+		ContentRange:  ContentRange,
+		ContentType:   ContentType,
+		Blob:          bodyStream,
+		IsLast:        true,
 	}
 
-	var err error
+	offset, err := h.usecase.UploadLastChunkedBlob(input)
 
-	if metadata.ContentRange == "" {
-		err = h.service.UploadBlob(metadata, bodyStream)
-	} else {
-		// err = h.service.CompleteUploadBlob()
-	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, "")
+		c.Header("Location", c.Request.URL.Path)
+		c.Header("Content-Length", "0")
+		c.Header("Docker-Upload-UUID", uuid)
+		c.Header("Range", fmt.Sprintf("0-%d", offset))
+		c.JSON(http.StatusRequestedRangeNotSatisfiable, "")
+		return
 	}
+
+	c.Header("Location", fmt.Sprintf("/v2/%s/blobs/%s", name, digest))
+	c.Header("Content-Length", "0")
+	c.Header("Docker-Upload-Digest", digest)
 	c.JSON(http.StatusCreated, "")
 }
 
 func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context) {
 	name := c.Param("name")
 	uuid := c.Param("uuid")
-	body := c.Request.Body
+	ContentLength := c.Request.ContentLength
+	ContentRange := c.Request.Header.Get("Content-Range")
+	ContentType := c.ContentType()
+	bodyStream := c.Request.Body
 
-	metadata := model.BlobUploadMetadata{
+	input := dto.UploadChunkedBlobInput{
 		Name:          name,
 		Uuid:          uuid,
-		ContentLength: c.Request.ContentLength,
-		ContentRange:  c.Request.Header.Get("Content-Range"),
-		ContentType:   c.ContentType(),
-		IsChunkUpload: true,
+		ContentLength: ContentLength,
+		ContentRange:  ContentRange,
+		ContentType:   ContentType,
+		Blob:          bodyStream,
 	}
+
+	offset, err := h.usecase.UploadChunkedBlob(input)
 
 	c.Header("Location", c.Request.URL.Path)
 	c.Header("Content-Length", "0")
 	c.Header("Docker-Upload-UUID", uuid)
 
-	offset, err := h.service.UploadChunkedBlob(metadata, body)
 	if err != nil {
 		c.Header("Range", fmt.Sprintf("0-%d", offset))
 		c.JSON(http.StatusRequestedRangeNotSatisfiable, "")

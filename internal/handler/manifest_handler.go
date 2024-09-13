@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/a-takamin/tcr/apperrors"
+	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service"
 	"github.com/a-takamin/tcr/internal/service/utils"

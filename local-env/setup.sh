@@ -40,9 +40,23 @@ aws dynamodb create-table \
   --table-name \
       blob-upload-progress \
   --attribute-definitions \
-      AttributeName=Name,AttributeType=S \
+      AttributeName=Uuid,AttributeType=S \
   --key-schema \
-      AttributeName=Name,KeyType=HASH \
+      AttributeName=Uuid,KeyType=HASH \
+  --billing-mode \
+      PAY_PER_REQUEST 
+
+aws dynamodb create-table \
+  --region \
+      ap-northeast-1 \
+  --endpoint-url \
+      http://dynamodb-local:8000 \
+  --table-name \
+      blob-concat-progress \
+  --attribute-definitions \
+      AttributeName=Digest,AttributeType=S \
+  --key-schema \
+      AttributeName=Digest,KeyType=HASH \
   --billing-mode \
       PAY_PER_REQUEST 
 
