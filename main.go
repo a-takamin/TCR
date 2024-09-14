@@ -47,6 +47,8 @@ func main() {
 	r.PUT("/v2/:name/blobs/uploads/:uuid", bh.UploadBlobHandler)
 	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler)
 
+	r.GET("/v2/:name/tags/list", bh.GetTagsHandler)
+
 	r.Run(":8080")
 
 }

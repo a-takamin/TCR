@@ -103,3 +103,14 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusAccepted, "")
 }
+
+func (h *ManifestHandler) GetTagsHandler(c *gin.Context) {
+	name := c.Param("name")
+	tags, err := h.service.GetTags(name)
+	if err != nil {
+		// TODO
+		c.JSON(http.StatusBadRequest, err)
+		return
+	}
+	c.JSON(http.StatusOK, tags)
+}

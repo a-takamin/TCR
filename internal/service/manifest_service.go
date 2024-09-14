@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/a-takamin/tcr/internal/dto"
 	"github.com/a-takamin/tcr/internal/interface/persister"
 	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service/utils"
@@ -57,4 +58,12 @@ func (s ManifestService) DeleteManifest(metadata model.ManifestMetadata) error {
 	}
 	return nil
 
+}
+
+func (s ManifestService) GetTags(name string) (dto.GetTagsResponse, error) {
+	err := utils.ValidateName(name)
+	if err != nil {
+		return dto.GetTagsResponse{}, err
+	}
+	return s.repo.GetTags(name)
 }

@@ -10,19 +10,24 @@ aws dynamodb create-table \
   --table-name \
       dynamodb-local-table \
   --attribute-definitions \
+      AttributeName=Name,AttributeType=S \
       AttributeName=Digest,AttributeType=S \
       AttributeName=Tag,AttributeType=S \
   --key-schema \
-      AttributeName=Digest,KeyType=HASH \
+      AttributeName=Name,KeyType=HASH \
+      AttributeName=Digest,KeyType=RANGE \
   --billing-mode \
       PAY_PER_REQUEST \
-  --global-secondary-indexes \
+  --local-secondary-indexes \
       '[
         {
           "IndexName": "ManifestTagIndex",
           "KeySchema": [
             {
-              "AttributeName":"Tag","KeyType":"HASH"
+              "AttributeName":"Name","KeyType":"HASH"
+            },
+            {
+              "AttributeName":"Tag","KeyType":"RANGE"
             }
           ],
           "Projection": {

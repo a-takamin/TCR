@@ -4,13 +4,15 @@ title: DynamoDB Table
 ---
 erDiagram
     Manifest {
-        string Digest PK "ダイジェスト"
+        string Name PK "リポジトリ名"
+        string Digest PK "(Sort Key)ダイジェスト"
         string Tag "タグ"
         string Manifest "マニフェスト(Base64)"
     }
 
-    ManifestTagGSI {
-        string Tag PK "タグ"
+    ManifestTagLSI {
+        string Name PK "リポジトリ名"
+        string Tag PK "(Sort Key)タグ"
         string Manifest "マニフェスト(Base64)"
     }
 
