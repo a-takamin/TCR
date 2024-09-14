@@ -54,7 +54,8 @@ func (u BlobUseCase) UploadMonolithicBlob(input dto.UploadMonolithicBlobInput) e
 	if err != nil {
 		return err
 	}
-	err = u.repo.UploadBlob(input.Digest, input.Blob)
+	key := fmt.Sprintf("%s/%s", input.Name, input.Blob)
+	err = u.repo.UploadBlob(key, input.Blob)
 	if err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64,
 		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
 	}
 
-	input.Key = fmt.Sprintf("/chunk/%s/%d", input.Uuid, info.NextChunkNo)
+	input.Key = fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, info.NextChunkNo)
 	err = u.repo.UploadBlob(input.Key, input.Blob)
 	if err != nil {
 		return info.ByteUploaded, err

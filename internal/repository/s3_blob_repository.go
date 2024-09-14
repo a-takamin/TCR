@@ -38,7 +38,7 @@ func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dyn
 func (r BlobRepository) GetBlob(name string, digest string) (model.Blob, error) {
 	resp, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(digest),
+		Key:    aws.String(name + "/" + digest),
 	})
 	if err != nil {
 		return model.Blob{}, err
