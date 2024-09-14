@@ -22,6 +22,25 @@ func NewManifestHandler(u *usecase.ManifestUseCase) *ManifestHandler {
 	}
 }
 
+func (h *ManifestHandler) ExistsManifestHandler(c *gin.Context) {
+	name := c.Param("name")
+	reference := c.Param("reference")
+
+	metadata := model.ManifestMetadata{
+		Name:      name,
+		Reference: reference,
+	}
+
+	resp, err := h.usecase.ExistsManifest(metadata)
+	if err != nil {
+		apperrors.ErrorHanlder(c, err)
+		return
+	}
+
+	c.Header("Docker-Content-Digest", resp.Digest)
+	c.JSON(http.StatusOK, "")
+}
+
 func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
 	name := c.Param("name")
 	reference := c.Param("reference")
@@ -33,12 +52,7 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
 
 	resp, err := h.usecase.GetManifest(metadata)
 	if err != nil {
-		// TODO: エラーハンドリング
-		if errors.Is(err, apperrors.ErrManifestNotFound) {
-			c.JSON(http.StatusNotFound, err)
-			return
-		}
-		c.JSON(http.StatusBadRequest, err)
+		apperrors.ErrorHanlder(c, err)
 		return
 	}
 

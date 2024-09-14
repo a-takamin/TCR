@@ -17,6 +17,10 @@ func NewManifestUseCase(repo persister.ManifestPersister) *ManifestUseCase {
 	}
 }
 
+func (u ManifestUseCase) ExistsManifest(metadata model.ManifestMetadata) (dto.GetManifestResponse, error) {
+	return u.GetManifest(metadata)
+}
+
 func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetManifestResponse, error) {
 	err := domain.ValidateNameSpace(metadata.Name)
 	if err != nil {

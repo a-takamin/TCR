@@ -130,3 +130,11 @@ func (r BlobRepository) GetChunkedBlobConcatenateProgress(digest string) (dto.Bl
 
 	return progress, nil
 }
+
+func (r BlobRepository) DeleteBlob(input dto.DeleteBlobInput) error {
+	_, err := r.client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(input.Name + "/" + input.Digest),
+	})
+	return err
+}

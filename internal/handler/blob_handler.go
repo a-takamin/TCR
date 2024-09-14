@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -20,6 +19,24 @@ func NewBlobHandler(s *usecase.BlobUseCase) *BlobHandler {
 		usecase: s,
 	}
 }
+func (h *BlobHandler) ExistsBlobHandler(c *gin.Context) {
+	name := c.Param("name")
+	digest := c.Param("digest")
+
+	metadata := dto.GetBlobInput{
+		Name:   name,
+		Digest: digest,
+	}
+
+	blob, err := h.usecase.GetBlob(metadata)
+	if err != nil {
+		apperrors.ErrorHanlder(c, err)
+		return
+	}
+
+	c.Header("Docker-Content-Digest", digest)
+	c.JSON(http.StatusOK, blob)
+}
 
 func (h *BlobHandler) GetBlobHandler(c *gin.Context) {
 	name := c.Param("name")
@@ -32,11 +49,7 @@ func (h *BlobHandler) GetBlobHandler(c *gin.Context) {
 
 	blob, err := h.usecase.GetBlob(metadata)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrBlobNotFound) {
-			c.JSON(http.StatusNotFound, err)
-			return
-		}
-		c.JSON(http.StatusBadRequest, err)
+		apperrors.ErrorHanlder(c, err)
 		return
 	}
 
@@ -144,5 +157,23 @@ func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context) {
 	}
 
 	c.Header("Range", fmt.Sprintf("bytes=0-%d", offset))
+	c.JSON(http.StatusAccepted, "")
+}
+
+func (h *BlobHandler) DeleteBlobHandler(c *gin.Context) {
+	name := c.Param("name")
+	digest := c.Param("digest")
+
+	input := dto.DeleteBlobInput{
+		Name:   name,
+		Digest: digest,
+	}
+
+	err := h.usecase.DeleteBlob(input)
+	if err != nil {
+		apperrors.ErrorHanlder(c, err)
+		return
+	}
+
 	c.JSON(http.StatusAccepted, "")
 }

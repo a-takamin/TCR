@@ -24,13 +24,16 @@ func NewBlobUseCase(s *domain.BlobDomain, r persister.BlobPersister) *BlobUseCas
 	}
 }
 
-func (u BlobUseCase) GetBlob(m dto.GetBlobInput) (model.Blob, error) {
-	// Get はほぼやることない
-	err := u.blob.ValidateNameSpace(m.Name)
+func (u BlobUseCase) ExistsBlob(input dto.GetBlobInput) (model.Blob, error) {
+	return u.GetBlob(input)
+}
+
+func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
+	err := u.blob.ValidateNameSpace(input.Name)
 	if err != nil {
 		return model.Blob{}, err
 	}
-	blob, err := u.repo.GetBlob(m.Name, m.Digest)
+	blob, err := u.repo.GetBlob(input.Name, input.Digest)
 	if err != nil {
 		return model.Blob{}, err
 	}
@@ -136,4 +139,19 @@ func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (in
 func (u BlobUseCase) StartBlobConcat(digest string) error {
 	// TODO: SQS を呼ぶ
 	return nil
+}
+
+func (u BlobUseCase) DeleteBlob(input dto.DeleteBlobInput) error {
+	_, err := u.ExistsBlob(dto.GetBlobInput{
+		Name:   input.Name,
+		Digest: input.Digest,
+	})
+	if err != nil {
+		return err
+	}
+	err = u.blob.ValidateNameSpace(input.Name)
+	if err != nil {
+		return err
+	}
+	return u.repo.DeleteBlob(input)
 }

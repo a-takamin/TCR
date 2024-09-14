@@ -1,11 +1,11 @@
 package domain
 
 import (
-	"errors"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/interface/persister"
 )
 
@@ -21,20 +21,20 @@ func (s BlobDomain) ValidateNameSpace(namespace string) error {
 	if matched {
 		return nil
 	}
-	return errors.New("name is invalid")
+	return apperrors.ErrInvalidName
 }
 
 func (s BlobDomain) ValidateDigest(digestLike string) error {
 	arr := strings.Split(digestLike, ":")
 	// digest MUST be "algorithm:encodedstring"
 	if len(arr) != 2 {
-		return errors.New("digest is invalid")
+		return apperrors.ErrInvalidReference
 	}
 	str := arr[1]
 	// TCR では sha256 以外のアルゴリズムを認めていない
 	matched, _ := regexp.MatchString(`^[a-f0-9]{64}$`, str)
 	if !matched {
-		return errors.New("digest is invalid")
+		return apperrors.ErrInvalidReference
 	}
 	return nil
 }
@@ -42,7 +42,7 @@ func (s BlobDomain) ValidateDigest(digestLike string) error {
 func (s BlobDomain) ValidateContentRange(contentRangeLike string) error {
 	matched, _ := regexp.MatchString(`^[0-9]+-[0-9]+$`, contentRangeLike)
 	if !matched {
-		return errors.New("Content-Range format is invalid")
+		return apperrors.ErrInvalidContentRange
 	}
 	return nil
 }
@@ -50,11 +50,11 @@ func (s BlobDomain) ValidateContentRange(contentRangeLike string) error {
 func (s BlobDomain) GetContentRangeStart(contentRange string) (int64, error) {
 	ranges := strings.Split(contentRange, "-")
 	if len(ranges) != 2 {
-		return 0, errors.New("Content-Range format is invalid")
+		return 0, apperrors.ErrInvalidContentRange
 	}
 	i, err := strconv.ParseInt(ranges[0], 10, 64)
 	if err != nil {
-		return 0, errors.New("Content-Range format is invalid")
+		return 0, apperrors.ErrInvalidContentRange
 	}
 
 	return i, nil
@@ -63,11 +63,11 @@ func (s BlobDomain) GetContentRangeStart(contentRange string) (int64, error) {
 func (s BlobDomain) GetContentRangeEnd(contentRange string) (int64, error) {
 	ranges := strings.Split(contentRange, "-")
 	if len(ranges) != 2 {
-		return 0, errors.New("Content-Range format is invalid")
+		return 0, apperrors.ErrInvalidContentRange
 	}
 	i, err := strconv.ParseInt(ranges[1], 10, 64)
 	if err != nil {
-		return 0, errors.New("Content-Range format is invalid")
+		return 0, apperrors.ErrInvalidContentRange
 	}
 
 	return i, nil

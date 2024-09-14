@@ -7,6 +7,11 @@ type GetBlobInput struct {
 	Digest string
 }
 
+type DeleteBlobInput struct {
+	Name   string
+	Digest string
+}
+
 type UploadMonolithicBlobInput struct {
 	Name          string
 	Uuid          string

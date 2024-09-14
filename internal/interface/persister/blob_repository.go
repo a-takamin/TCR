@@ -14,6 +14,5 @@ type BlobPersister interface {
 	PutChunkedBlobUpdateProgress(newProgress dto.BlobUploadProgress) error
 	PutChunkedBlobConcatenateProgress(concatProgress dto.BlobConcatenateProgress) error
 	GetChunkedBlobConcatenateProgress(digest string) (dto.BlobConcatenateProgress, error)
-	// PutBlob(metadata model.BlobMetadata, manifest model.Blob) error
-	// DeleteBlob(metadata model.BlobMetadata) error
+	DeleteBlob(dto.DeleteBlobInput) error
 }

@@ -29,7 +29,6 @@ func main() {
 
 	mRepo := repository.NewManifestRepository(dynamodbClient, "dynamodb-local-table")
 	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, "blob-upload-progress")
-	// ms := service.NewManifestService(mRepo)
 
 	blobDomain := domain.NewBlobDomain(bRepo)
 	mu := usecase.NewManifestUseCase(mRepo)
@@ -38,16 +37,18 @@ func main() {
 	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
 
-	r.GET("/v2/:name/manifests/:reference", mh.GetManifestHandler)
-	r.PUT("/v2/:name/manifests/:reference", mh.PutManifestHandler)
-	r.DELETE("/v2/:name/manifests/:reference", mh.DeleteManifestHandler)
+	r.HEAD("/v2/:name/blobs/:digest", bh.ExistsBlobHandler)               // end-2
+	r.GET("/v2/:name/blobs/:digest", bh.GetBlobHandler)                   // end-2
+	r.HEAD("/v2/:name/manifests/:reference", mh.ExistsManifestHandler)    // end-3
+	r.GET("/v2/:name/manifests/:reference", mh.GetManifestHandler)        // end-3
+	r.POST("/v2/:name/blobs/uploads", bh.StartUploadBlobHandler)          // end-4a, 4b
+	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler) // end-5
+	r.PUT("/v2/:name/manifests/:reference", mh.PutManifestHandler)        // end-6
+	r.GET("/v2/:name/tags/list", mh.GetTagsHandler)                       // end-8a
+	r.DELETE("/v2/:name/manifests/:reference", mh.DeleteManifestHandler)  // end-9
+	r.DELETE("/v2/:name/blobs/:reference", bh.DeleteBlobHandler)          // end-10
 
-	r.GET("/v2/:name/blobs/:digest", bh.GetBlobHandler)
-	r.POST("/v2/:name/blobs/uploads", bh.StartUploadBlobHandler)
 	r.PUT("/v2/:name/blobs/uploads/:uuid", bh.UploadBlobHandler)
-	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler)
-
-	r.GET("/v2/:name/tags/list", mh.GetTagsHandler)
 
 	r.Run(":8080")
 

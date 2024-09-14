@@ -3,11 +3,11 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
 )
 
@@ -16,20 +16,20 @@ func ValidateNameSpace(namespace string) error {
 	if matched {
 		return nil
 	}
-	return errors.New("name is invalid")
+	return apperrors.ErrInvalidName
 }
 
 func ValidateDigest(digestLike string) error {
 	arr := strings.Split(digestLike, ":")
 	// digest MUST be "algorithm:encodedstring"
 	if len(arr) != 2 {
-		return errors.New("digest is invalid")
+		return apperrors.ErrInvalidReference
 	}
 	str := arr[1]
 	// TCR では sha256 以外のアルゴリズムを認めていない
 	matched, _ := regexp.MatchString(`^[a-f0-9]{64}$`, str)
 	if !matched {
-		return errors.New("digest is invalid")
+		return apperrors.ErrInvalidReference
 	}
 	return nil
 }
