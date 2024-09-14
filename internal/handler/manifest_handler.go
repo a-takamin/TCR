@@ -8,18 +8,17 @@ import (
 
 	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
-	"github.com/a-takamin/tcr/internal/service"
-	"github.com/a-takamin/tcr/internal/service/utils"
+	"github.com/a-takamin/tcr/internal/service/usecase"
 	"github.com/gin-gonic/gin"
 )
 
 type ManifestHandler struct {
-	service *service.ManifestService
+	usecase *usecase.ManifestUseCase
 }
 
-func NewManifestHandler(s *service.ManifestService) *ManifestHandler {
+func NewManifestHandler(u *usecase.ManifestUseCase) *ManifestHandler {
 	return &ManifestHandler{
-		service: s,
+		usecase: u,
 	}
 }
 
@@ -32,8 +31,9 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
 		Reference: reference,
 	}
 
-	manifest, err := h.service.GetManifest(metadata)
+	resp, err := h.usecase.GetManifest(metadata)
 	if err != nil {
+		// TODO: エラーハンドリング
 		if errors.Is(err, apperrors.ErrManifestNotFound) {
 			c.JSON(http.StatusNotFound, err)
 			return
@@ -42,12 +42,8 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
 		return
 	}
 
-	digest, err := utils.CalcManifestDigest(manifest)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-	c.Header("Docker-Content-Digest", digest)
-	c.JSON(http.StatusOK, manifest)
+	c.Header("Docker-Content-Digest", resp.Digest)
+	c.JSON(http.StatusOK, resp.Manifest)
 }
 
 func (h *ManifestHandler) PutManifestHandler(c *gin.Context) {
@@ -79,7 +75,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context) {
 
 	// TODO: manifest が指す Blob があるかどうか MUST で確認する。なければ 404 を返す。
 
-	err := h.service.PutManifest(metadata, manifest)
+	err := h.usecase.PutManifest(metadata, manifest)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -96,7 +92,7 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context) {
 		Reference: reference,
 	}
 
-	err := h.service.DeleteManifest(metadata)
+	err := h.usecase.DeleteManifest(metadata)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -106,7 +102,7 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context) {
 
 func (h *ManifestHandler) GetTagsHandler(c *gin.Context) {
 	name := c.Param("name")
-	tags, err := h.service.GetTags(name)
+	tags, err := h.usecase.GetTags(name)
 	if err != nil {
 		// TODO
 		c.JSON(http.StatusBadRequest, err)

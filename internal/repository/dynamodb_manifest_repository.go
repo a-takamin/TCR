@@ -9,7 +9,7 @@ import (
 	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/dto"
 	"github.com/a-takamin/tcr/internal/model"
-	"github.com/a-takamin/tcr/internal/service/utils"
+	"github.com/a-takamin/tcr/internal/service/domain"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -74,7 +74,7 @@ func (r ManifestRepository) createManifestGetResponse(manifest Manifest) (model.
 }
 
 func (r ManifestRepository) GetManifest(metadata model.ManifestMetadata) (model.Manifest, error) {
-	if !utils.IsDigest(metadata.Reference) {
+	if !domain.IsDigest(metadata.Reference) {
 		return r.GetManifestByTag(metadata)
 	}
 
@@ -162,13 +162,13 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, content
 	encodedManifest := base64.StdEncoding.EncodeToString(byteManifest)
 
 	var manifest Manifest
-	if utils.IsDigest(metadata.Reference) {
+	if domain.IsDigest(metadata.Reference) {
 		manifest = Manifest{
 			Digest:   metadata.Reference,
 			Manifest: encodedManifest,
 		}
 	} else {
-		digest, err := utils.CalcManifestDigest(content)
+		digest, err := domain.CalcManifestDigest(content)
 		if err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, content
 }
 
 func (r ManifestRepository) DeleteManifest(metadata model.ManifestMetadata) error {
-	if !utils.IsDigest(metadata.Reference) {
+	if !domain.IsDigest(metadata.Reference) {
 		return r.DeleteManifestByTag(metadata)
 	}
 

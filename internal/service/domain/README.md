@@ -1,0 +1,1 @@
+blob と manifest より、container とかの方がドメインとしてはうまくいくかも

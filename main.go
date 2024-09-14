@@ -6,7 +6,6 @@ import (
 	"github.com/a-takamin/tcr/internal/client"
 	"github.com/a-takamin/tcr/internal/handler"
 	"github.com/a-takamin/tcr/internal/repository"
-	"github.com/a-takamin/tcr/internal/service"
 	"github.com/a-takamin/tcr/internal/service/domain"
 	"github.com/a-takamin/tcr/internal/service/usecase"
 	"github.com/gin-gonic/gin"
@@ -30,12 +29,13 @@ func main() {
 
 	mRepo := repository.NewManifestRepository(dynamodbClient, "dynamodb-local-table")
 	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, "blob-upload-progress")
-	ms := service.NewManifestService(mRepo)
-	bs := domain.NewBlobDomain(bRepo)
-	// mu := usecase.NewManifestUseCase(ms)
-	bu := usecase.NewBlobUseCase(bs, bRepo)
+	// ms := service.NewManifestService(mRepo)
 
-	mh := handler.NewManifestHandler(ms)
+	blobDomain := domain.NewBlobDomain(bRepo)
+	mu := usecase.NewManifestUseCase(mRepo)
+	bu := usecase.NewBlobUseCase(blobDomain, bRepo)
+
+	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
 
 	r.GET("/v2/:name/manifests/:reference", mh.GetManifestHandler)
@@ -47,7 +47,7 @@ func main() {
 	r.PUT("/v2/:name/blobs/uploads/:uuid", bh.UploadBlobHandler)
 	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler)
 
-	r.GET("/v2/:name/tags/list", bh.GetTagsHandler)
+	r.GET("/v2/:name/tags/list", mh.GetTagsHandler)
 
 	r.Run(":8080")
 
