@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/a-takamin/tcr/internal/client"
 	"github.com/a-takamin/tcr/internal/handler"
@@ -37,6 +38,9 @@ func main() {
 	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
 
+	r.GET("/v2", func(c *gin.Context) { // end-1
+		c.JSON(http.StatusOK, "")
+	})
 	r.HEAD("/v2/:name/blobs/:digest", bh.ExistsBlobHandler)               // end-2
 	r.GET("/v2/:name/blobs/:digest", bh.GetBlobHandler)                   // end-2
 	r.HEAD("/v2/:name/manifests/:reference", mh.ExistsManifestHandler)    // end-3
