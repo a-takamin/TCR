@@ -19,29 +19,23 @@ func NewBlobHandler(s *usecase.BlobUseCase) *BlobHandler {
 		usecase: s,
 	}
 }
-func (h *BlobHandler) ExistsBlobHandler(c *gin.Context) {
-	name := c.Param("name")
-	digest := c.Param("digest")
-
+func (h *BlobHandler) ExistsBlobHandler(c *gin.Context, name string, digest string) {
 	metadata := dto.GetBlobInput{
 		Name:   name,
 		Digest: digest,
 	}
 
-	blob, err := h.usecase.GetBlob(metadata)
+	_, err := h.usecase.GetBlob(metadata)
 	if err != nil {
 		apperrors.ErrorHanlder(c, err)
 		return
 	}
 
 	c.Header("Docker-Content-Digest", digest)
-	c.JSON(http.StatusOK, blob)
+	c.JSON(http.StatusOK, "")
 }
 
-func (h *BlobHandler) GetBlobHandler(c *gin.Context) {
-	name := c.Param("name")
-	digest := c.Param("digest")
-
+func (h *BlobHandler) GetBlobHandler(c *gin.Context, name string, digest string) {
 	metadata := dto.GetBlobInput{
 		Name:   name,
 		Digest: digest,

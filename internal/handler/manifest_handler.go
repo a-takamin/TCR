@@ -22,10 +22,7 @@ func NewManifestHandler(u *usecase.ManifestUseCase) *ManifestHandler {
 	}
 }
 
-func (h *ManifestHandler) ExistsManifestHandler(c *gin.Context) {
-	name := c.Param("name")
-	reference := c.Param("reference")
-
+func (h *ManifestHandler) ExistsManifestHandler(c *gin.Context, name string, reference string) {
 	metadata := model.ManifestMetadata{
 		Name:      name,
 		Reference: reference,
@@ -41,10 +38,7 @@ func (h *ManifestHandler) ExistsManifestHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, "")
 }
 
-func (h *ManifestHandler) GetManifestHandler(c *gin.Context) {
-	name := c.Param("name")
-	reference := c.Param("reference")
-
+func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, reference string) {
 	metadata := model.ManifestMetadata{
 		Name:      name,
 		Reference: reference,
@@ -114,8 +108,7 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context) {
 	c.JSON(http.StatusAccepted, "")
 }
 
-func (h *ManifestHandler) GetTagsHandler(c *gin.Context) {
-	name := c.Param("name")
+func (h *ManifestHandler) GetTagsHandler(c *gin.Context, name string) {
 	tags, err := h.usecase.GetTags(name)
 	if err != nil {
 		// TODO
