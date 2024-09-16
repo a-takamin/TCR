@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Gin ではパスの変数にスラッシュを使えないために設けられたハンドラー
 type FacadeHandler struct {
 	blobHandler     BlobHandler
 	manifestHandler ManifestHandler
@@ -18,7 +19,7 @@ func NewFacadeHandler() *FacadeHandler {
 	return &FacadeHandler{}
 }
 
-// 以下を想定
+// 以下の API
 //
 // "/v2/:name/blobs/:digest"
 //
@@ -53,6 +54,13 @@ func (h FacadeHandler) HandleHEAD(c *gin.Context) {
 	}
 }
 
+// 以下の API
+//
+// "/v2/:name/blobs/:digest"
+//
+// "/v2/:name/manifests/:reference"
+//
+// "/v2/:name/tags/list"
 func (h FacadeHandler) HandleGET(c *gin.Context) {
 	remainPath := c.Param("remain")
 	name, afterNamePath, err := pickUpName(remainPath, 2)
