@@ -54,10 +54,7 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, refere
 	c.JSON(http.StatusOK, resp.Manifest)
 }
 
-func (h *ManifestHandler) PutManifestHandler(c *gin.Context) {
-	name := c.Param("name")
-	reference := c.Param("reference")
-
+func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, reference string) {
 	metadata := model.ManifestMetadata{
 		Name:      name,
 		Reference: reference,
@@ -91,10 +88,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context) {
 	c.Redirect(http.StatusCreated, c.Request.Host+c.Request.URL.Path)
 }
 
-func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context) {
-	name := c.Param("name")
-	reference := c.Param("reference")
-
+func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context, name string, reference string) {
 	metadata := model.ManifestMetadata{
 		Name:      name,
 		Reference: reference,

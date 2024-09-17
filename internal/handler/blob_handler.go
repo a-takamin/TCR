@@ -51,8 +51,7 @@ func (h *BlobHandler) GetBlobHandler(c *gin.Context, name string, digest string)
 	c.JSON(http.StatusOK, blob)
 }
 
-func (h *BlobHandler) StartUploadBlobHandler(c *gin.Context) {
-	name := c.Param("name")
+func (h *BlobHandler) StartUploadBlobHandler(c *gin.Context, name string) {
 	redirectUrl, err := h.usecase.StartBlobUpload(name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err)
@@ -63,9 +62,7 @@ func (h *BlobHandler) StartUploadBlobHandler(c *gin.Context) {
 	c.JSON(http.StatusAccepted, "")
 }
 
-func (h *BlobHandler) UploadBlobHandler(c *gin.Context) {
-	name := c.Param("name")
-	uuid := c.Param("uuid")
+func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string) {
 	digest := c.Query("digest")
 	ContentLength := c.Request.ContentLength
 	ContentRange := c.Request.Header.Get("Content-Range")
@@ -122,9 +119,7 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, "")
 }
 
-func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context) {
-	name := c.Param("name")
-	uuid := c.Param("uuid")
+func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context, name string, uuid string) {
 	ContentLength := c.Request.ContentLength
 	ContentRange := c.Request.Header.Get("Content-Range")
 	ContentType := c.ContentType()
@@ -154,10 +149,7 @@ func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context) {
 	c.JSON(http.StatusAccepted, "")
 }
 
-func (h *BlobHandler) DeleteBlobHandler(c *gin.Context) {
-	name := c.Param("name")
-	digest := c.Param("digest")
-
+func (h *BlobHandler) DeleteBlobHandler(c *gin.Context, name string, digest string) {
 	input := dto.DeleteBlobInput{
 		Name:   name,
 		Digest: digest,

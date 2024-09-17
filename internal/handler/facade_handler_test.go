@@ -20,7 +20,7 @@ func TestPickUpName(t *testing.T) {
 		{
 			testName: "name のスラッシュが 1 つで partsNumAfterName が 2 のときの正常系",
 			args: args{
-				path:              "org/repo/blobs/upload",
+				path:              "/org/repo/blobs/upload/",
 				partsNumAfterName: 2,
 			},
 			wants: wants{
@@ -32,7 +32,7 @@ func TestPickUpName(t *testing.T) {
 		{
 			testName: "name のスラッシュが 0 個で partsNumAfterName が 2 のときの正常系",
 			args: args{
-				path:              "orgrepo/blobs/upload",
+				path:              "/orgrepo/blobs/upload/",
 				partsNumAfterName: 2,
 			},
 			wants: wants{
@@ -44,7 +44,7 @@ func TestPickUpName(t *testing.T) {
 		{
 			testName: "name のスラッシュが 2 つで partsNumAfterName が 2 のときの正常系",
 			args: args{
-				path:              "org/repo/hoge/blobs/upload",
+				path:              "/org/repo/hoge/blobs/upload/",
 				partsNumAfterName: 2,
 			},
 			wants: wants{
@@ -56,7 +56,7 @@ func TestPickUpName(t *testing.T) {
 		{
 			testName: "name のスラッシュが 1 つで partsNumAfterName が 3 のときの正常系",
 			args: args{
-				path:              "org/repo/blobs/upload/uuid",
+				path:              "/org/repo/blobs/upload/uuid/",
 				partsNumAfterName: 3,
 			},
 			wants: wants{

@@ -38,22 +38,18 @@ func main() {
 	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
 
-	facade := handler.NewFacadeHandler()
+	facade := handler.NewFacadeHandler(mh, bh)
 
 	r.GET("/v2", func(c *gin.Context) { // end-1
 		c.JSON(http.StatusOK, "")
 	})
 
-	r.HEAD("/v2/*remain", facade.HandleHEAD) // end-2, end-3
-	r.GET("/v2/*remain", facade.HandleGET)   // end-2, end-3, end-8a
-
-	r.POST("/v2/:name/blobs/uploads", bh.StartUploadBlobHandler)          // end-4a, 4b
-	r.PATCH("/v2/:name/blobs/uploads/:uuid", bh.UploadChunkedBlobHandler) // end-5
-	r.PUT("/v2/:name/manifests/:reference", mh.PutManifestHandler)        // end-6
-	r.DELETE("/v2/:name/manifests/:reference", mh.DeleteManifestHandler)  // end-9
-	r.DELETE("/v2/:name/blobs/:reference", bh.DeleteBlobHandler)          // end-10
-
-	r.PUT("/v2/:name/blobs/uploads/:uuid", bh.UploadBlobHandler)
+	r.HEAD("/v2/*remain", facade.HandleHEAD)     // end-2, end-3
+	r.GET("/v2/*remain", facade.HandleGET)       // end-2, end-3, end-8a
+	r.POST("/v2/*remain", facade.HandlePOST)     // end-4a, 4b
+	r.PUT("/v2/*remain", facade.HandlePUT)       // end-6,
+	r.PATCH("/v2/*remain", facade.HandlePATCH)   // end-5
+	r.DELETE("/v2/*remain", facade.HandleDELETE) // end-9, end-10
 
 	r.Run(":8080")
 
