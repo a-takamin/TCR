@@ -35,7 +35,8 @@ func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
 	}
 	blob, err := u.repo.GetBlob(input.Name, input.Digest)
 	if err != nil {
-		return model.Blob{}, err
+		// TODO: ちゃんとエラーハンドリング
+		return model.Blob{}, apperrors.ErrBlobNotFound
 	}
 	return blob, err
 }

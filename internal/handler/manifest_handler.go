@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -64,7 +66,16 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 
 	var manifest model.Manifest
 
-	if err := c.ShouldBindJSON(&manifest); err != nil {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		err := fmt.Errorf("manifest is invalid: %w", err)
+		log.Println(err.Error())
+		c.JSON(http.StatusBadRequest, err)
+		return
+	}
+
+	err = json.Unmarshal(body, &manifest)
+	if err != nil {
 		err := fmt.Errorf("manifest is invalid: %w", err)
 		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, err)
@@ -80,7 +91,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 
 	// TODO: manifest が指す Blob があるかどうか MUST で確認する。なければ 404 を返す。
 
-	err := h.usecase.PutManifest(metadata, manifest)
+	err = h.usecase.PutManifest(metadata, manifest)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return

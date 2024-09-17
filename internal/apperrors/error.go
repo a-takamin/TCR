@@ -27,5 +27,7 @@ func ErrorHanlder(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, err)
 	case ErrBlobNotFound:
 		c.JSON(http.StatusNotFound, err)
+	default:
+		c.JSON(http.StatusInternalServerError, err)
 	}
 }

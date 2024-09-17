@@ -164,7 +164,9 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, content
 	var manifest Manifest
 	if domain.IsDigest(metadata.Reference) {
 		manifest = Manifest{
+			Name:     metadata.Name,
 			Digest:   metadata.Reference,
+			Tag:      metadata.Reference, // Digest のみの指定の場合は Tag の値を Digest にすることにする（OCI には定義されていない）
 			Manifest: encodedManifest,
 		}
 	} else {
@@ -173,6 +175,7 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, content
 			return err
 		}
 		manifest = Manifest{
+			Name:     metadata.Name,
 			Digest:   digest,
 			Tag:      metadata.Reference,
 			Manifest: encodedManifest,
