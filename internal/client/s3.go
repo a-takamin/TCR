@@ -13,18 +13,12 @@ func NewS3Client(isLocal bool) (*s3.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return s3.NewFromConfig(cfg, createS3Option(isLocal)), nil
-
-}
-
-func createS3Option(isLocal bool) func(o *s3.Options) {
 	if isLocal {
-		return func(o *s3.Options) {
+		return s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.BaseEndpoint = aws.String("http://localhost:9000")
 			o.UsePathStyle = true // local のときだけ minio を使うために必要
 			o.EndpointOptions.DisableHTTPS = true
-		}
+		}), nil
 	}
-	return nil
+	return s3.NewFromConfig(cfg), nil
 }

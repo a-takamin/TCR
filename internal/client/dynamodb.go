@@ -13,14 +13,10 @@ func NewDynamoDbClient(isLocal bool) (*dynamodb.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dynamodb.NewFromConfig(cfg, createDynamoDbOption(isLocal)), nil
-}
-
-func createDynamoDbOption(isLocal bool) func(o *dynamodb.Options) {
 	if isLocal {
-		return func(o *dynamodb.Options) {
+		return dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
 			o.BaseEndpoint = aws.String("http://localhost:8000")
-		}
+		}), nil
 	}
-	return nil
+	return dynamodb.NewFromConfig(cfg), nil
 }

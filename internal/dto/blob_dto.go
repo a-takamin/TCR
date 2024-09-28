@@ -34,14 +34,14 @@ type UploadChunkedBlobInput struct {
 }
 
 type BlobUploadProgress struct {
-	Uuid         string `json:"uuid"`
-	ByteUploaded int64  `json:"byte_uploaded"`
-	NextChunkNo  int    `json:"next_chunk_no"`
-	Done         bool   `json:"done"`
-	Digest       string `json:"digest"`
+	Uuid         string `json:"Uuid"`
+	ByteUploaded int64  `json:"ByteUploaded"`
+	NextChunkNo  int    `json:"NextChunkNo"`
+	Done         bool   `json:"Done"`
+	Digest       string `json:"Digest"`
 }
 
 type BlobConcatenateProgress struct {
-	Digest string `json:"digest"`
-	Status string `json:"status"`
+	Digest string `json:"Digest"`
+	Status string `json:"Status"`
 }
