@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/a-takamin/tcr/internal/apperrors"
@@ -69,7 +70,12 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string
 	ContentType := c.ContentType()
 	bodyStream := c.Request.Body
 
-	if ContentRange == "" {
+	isChunkedUpload, err := h.usecase.IsChunkedUpload(name, uuid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "")
+		return
+	}
+	if !isChunkedUpload {
 		// Monolithic Upload
 		input := dto.UploadMonolithicBlobInput{
 			Name:          name,
@@ -82,10 +88,12 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string
 		err := h.usecase.UploadMonolithicBlob(input)
 		if err != nil {
 			// TODO: http status code
+			slog.Error(err.Error())
 			c.JSON(http.StatusInternalServerError, "")
 			return
 		}
 		// TODO: http status code
+		c.Header("Location", fmt.Sprintf("/v2/%s/blobs/%s", name, digest))
 		c.JSON(http.StatusCreated, "")
 		return
 	}
@@ -105,6 +113,7 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string
 	offset, err := h.usecase.UploadLastChunkedBlob(input)
 
 	if err != nil {
+		slog.Error(err.Error())
 		c.Header("Location", c.Request.URL.Path)
 		c.Header("Content-Length", "0")
 		c.Header("Docker-Upload-UUID", uuid)
@@ -122,6 +131,9 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string
 func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context, name string, uuid string) {
 	ContentLength := c.Request.ContentLength
 	ContentRange := c.Request.Header.Get("Content-Range")
+	if ContentRange == "" {
+		ContentRange = fmt.Sprintf("0-%d", ContentLength)
+	}
 	ContentType := c.ContentType()
 	bodyStream := c.Request.Body
 
@@ -141,11 +153,12 @@ func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context, name string, uuid
 	c.Header("Docker-Upload-UUID", uuid)
 
 	if err != nil {
+		slog.Error(err.Error())
 		c.Header("Range", fmt.Sprintf("0-%d", offset))
 		c.JSON(http.StatusRequestedRangeNotSatisfiable, "")
 	}
 
-	c.Header("Range", fmt.Sprintf("bytes=0-%d", offset))
+	c.Header("Range", fmt.Sprintf("0-%d", offset))
 	c.JSON(http.StatusAccepted, "")
 }
 
@@ -157,9 +170,25 @@ func (h *BlobHandler) DeleteBlobHandler(c *gin.Context, name string, digest stri
 
 	err := h.usecase.DeleteBlob(input)
 	if err != nil {
+		slog.Error(err.Error())
 		apperrors.ErrorHanlder(c, err)
 		return
 	}
 
 	c.JSON(http.StatusAccepted, "")
+}
+
+func (h *BlobHandler) GetUploadStatusHandler(c *gin.Context, name string, uuid string) {
+	offset, err := h.usecase.GetBlobUploadStatus(name, uuid)
+	if err != nil {
+		slog.Error(err.Error())
+		// TODO: http status
+		c.JSON(http.StatusNotFound, "")
+		return
+	}
+	c.Header("Range", fmt.Sprintf("0-%d", offset))
+	c.Header("Content-Length", "0")
+	c.Header("Blob-Upload-Session-ID", uuid)
+	c.Header("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s", name, uuid))
+	c.JSON(http.StatusNoContent, "")
 }

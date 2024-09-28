@@ -3,6 +3,7 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -17,6 +18,35 @@ func ValidateNameSpace(namespace string) error {
 		return nil
 	}
 	return apperrors.ErrInvalidName
+}
+
+// マニフェストの仕様: https://github.com/opencontainers/image-spec/blob/v1.0.1/manifest.md
+//
+// 未定義のフィールドが含まれていようと、REQUIRED が存在すれば OK らしい
+//
+// これは Conformance Test のデータからそのように判断した
+func ValidateManifest(metadata model.ManifestMetadata, target []byte) error {
+	var manifest model.Manifest
+
+	err := json.Unmarshal(target, &manifest)
+	if err != nil {
+		return fmt.Errorf("manifest is invalid: %w", err)
+	}
+
+	if metadata.ContentType != manifest.MediaType {
+		return errors.New("Content-Type is invalid")
+	}
+
+	// TODO: 今は雑なのできっちりバリデーションする
+	if manifest.SchemaVersion == 0 {
+		return errors.New("manifest is invalid")
+	}
+
+	if manifest.Config.MediaType == "" {
+		return errors.New("manifest is invalid")
+	}
+
+	return nil
 }
 
 func ValidateDigest(digestLike string) error {
@@ -34,12 +64,8 @@ func ValidateDigest(digestLike string) error {
 	return nil
 }
 
-func CalcManifestDigest(manifest model.Manifest) (string, error) {
-	b, err := json.Marshal(manifest)
-	if err != nil {
-		return "", err
-	}
-	p := sha256.Sum256(b)
+func CalcManifestDigest(manifest []byte) (string, error) {
+	p := sha256.Sum256(manifest)
 	return fmt.Sprintf("sha256:%s", fmt.Sprintf("%x", p)), nil
 }
 

@@ -1,8 +1,9 @@
 package model
 
 type ManifestMetadata struct {
-	Name      string
-	Reference string
+	Name        string
+	Reference   string
+	ContentType string
 }
 
 type Manifest struct {

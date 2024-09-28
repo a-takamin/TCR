@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -58,32 +56,14 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, refere
 
 func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, reference string) {
 	metadata := model.ManifestMetadata{
-		Name:      name,
-		Reference: reference,
+		Name:        name,
+		Reference:   reference,
+		ContentType: c.Request.Header.Get("Content-Type"),
 	}
-
-	contentType := c.Request.Header.Get("Content-Type")
-
-	var manifest model.Manifest
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		err := fmt.Errorf("manifest is invalid: %w", err)
-		log.Println(err.Error())
-		c.JSON(http.StatusBadRequest, err)
-		return
-	}
-
-	err = json.Unmarshal(body, &manifest)
-	if err != nil {
-		err := fmt.Errorf("manifest is invalid: %w", err)
-		log.Println(err.Error())
-		c.JSON(http.StatusBadRequest, err)
-		return
-	}
-
-	if contentType != manifest.MediaType {
-		err := errors.New("Content-Type is invalid")
+		err := fmt.Errorf("could not read manifest: %w", err)
 		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -91,7 +71,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 
 	// TODO: manifest が指す Blob があるかどうか MUST で確認する。なければ 404 を返す。
 
-	err = h.usecase.PutManifest(metadata, manifest)
+	err = h.usecase.PutManifest(metadata, body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return

@@ -46,6 +46,16 @@ func (u BlobUseCase) StartBlobUpload(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	info := dto.BlobUploadProgress{
+		Uuid:         uid.String(),
+		NextChunkNo:  0,
+		ByteUploaded: 0,
+		Done:         false,
+	}
+	err = u.repo.PutChunkedBlobUpdateProgress(info)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("/v2/%s/blobs/uploads/%s", name, uid), nil
 }
 
@@ -58,7 +68,7 @@ func (u BlobUseCase) UploadMonolithicBlob(input dto.UploadMonolithicBlobInput) e
 	if err != nil {
 		return err
 	}
-	key := fmt.Sprintf("%s/%s", input.Name, input.Blob)
+	key := fmt.Sprintf("%s/%s", input.Name, input.Digest)
 	err = u.repo.UploadBlob(key, input.Blob)
 	if err != nil {
 		return err
@@ -89,8 +99,15 @@ func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64,
 	if info.Done {
 		return info.ByteUploaded, apperrors.ErrAllChunksAreAlreadyUploaded
 	}
-	if startByte != info.ByteUploaded {
-		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+	// TODO: 綺麗にする
+	if info.ByteUploaded == 0 {
+		if startByte != info.ByteUploaded {
+			return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+		}
+	} else {
+		if startByte != info.ByteUploaded+1 {
+			return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+		}
 	}
 
 	input.Key = fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, info.NextChunkNo)
@@ -101,7 +118,7 @@ func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64,
 
 	info.Uuid = input.Uuid
 	info.NextChunkNo += 1
-	info.ByteUploaded += input.ContentLength
+	info.ByteUploaded += input.ContentLength - 1
 	info.Done = input.IsLast
 
 	err = u.repo.PutChunkedBlobUpdateProgress(info)
@@ -112,9 +129,15 @@ func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64,
 }
 
 func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (int64, error) {
-	offset, err := u.UploadChunkedBlob(input)
-	if err != nil && !errors.Is(err, apperrors.ErrAllChunksAreAlreadyUploaded) {
-		return offset, err
+	var offset int64
+	var err error
+
+	if input.ContentLength != 0 {
+		// Last Upload with Blob
+		offset, err = u.UploadChunkedBlob(input)
+		if err != nil && !errors.Is(err, apperrors.ErrAllChunksAreAlreadyUploaded) {
+			return offset, err
+		}
 	}
 
 	// temp にアップロードされた過去のレイヤーを結合する処理を非同期で実施。それをトリガー。今回は SQS
@@ -155,4 +178,30 @@ func (u BlobUseCase) DeleteBlob(input dto.DeleteBlobInput) error {
 		return err
 	}
 	return u.repo.DeleteBlob(input)
+}
+
+// TODO: モノリスかチャンクかの見分けをもう少しちゃんと考える
+func (u BlobUseCase) IsChunkedUpload(name string, uuid string) (bool, error) {
+	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+	if err != nil {
+		return false, err
+	}
+	if info.ByteUploaded > 0 {
+		return true, nil
+	}
+	if info.Done {
+		return true, nil
+	}
+	if info.NextChunkNo > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (u BlobUseCase) GetBlobUploadStatus(name string, uuid string) (int64, error) {
+	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+	if err != nil {
+		return 0, err
+	}
+	return info.ByteUploaded, nil
 }

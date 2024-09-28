@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -58,22 +59,16 @@ func (r ManifestRepository) createManifestByDigestGetInput(name string, digest s
 	}
 }
 
-func (r ManifestRepository) createManifestGetResponse(manifest Manifest) (model.Manifest, error) {
+func (r ManifestRepository) createManifestGetResponse(manifest Manifest) (string, error) {
 	decordedManifest, err := base64.StdEncoding.DecodeString(manifest.Manifest)
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 
-	var modelManifest model.Manifest
-	err = json.Unmarshal(decordedManifest, &modelManifest)
-	if err != nil {
-		return model.Manifest{}, err
-	}
-
-	return modelManifest, nil
+	return string(decordedManifest), nil
 }
 
-func (r ManifestRepository) GetManifest(metadata model.ManifestMetadata) (model.Manifest, error) {
+func (r ManifestRepository) GetManifest(metadata model.ManifestMetadata) (string, error) {
 	if !domain.IsDigest(metadata.Reference) {
 		return r.GetManifestByTag(metadata)
 	}
@@ -83,20 +78,20 @@ func (r ManifestRepository) GetManifest(metadata model.ManifestMetadata) (model.
 	resp, err := r.getItem(context.TODO(), input)
 
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 
 	if len(resp.Item) == 0 {
-		return model.Manifest{}, apperrors.ErrManifestNotFound
+		return "", apperrors.ErrManifestNotFound
 	}
 
-	var manifest Manifest
-	err = attributevalue.UnmarshalMap(resp.Item, &manifest)
+	var dbManifest Manifest
+	err = attributevalue.UnmarshalMap(resp.Item, &dbManifest)
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 
-	return r.createManifestGetResponse(manifest)
+	return r.createManifestGetResponse(dbManifest)
 }
 
 func (r ManifestRepository) createGetManifestByTagInput(name string, tag string) (*dynamodb.QueryInput, error) {
@@ -131,58 +126,63 @@ func (r ManifestRepository) createGetTagsInput(name string) (*dynamodb.QueryInpu
 	}, nil
 }
 
-func (r ManifestRepository) GetManifestByTag(metadata model.ManifestMetadata) (model.Manifest, error) {
+func (r ManifestRepository) GetManifestByTag(metadata model.ManifestMetadata) (string, error) {
 	input, err := r.createGetManifestByTagInput(metadata.Name, metadata.Reference)
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 	resp, err := r.QueryItem(context.TODO(), input)
 
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 	var manifests []Manifest
 	err = attributevalue.UnmarshalListOfMaps(resp.Items, &manifests)
 	if err != nil {
-		return model.Manifest{}, err
+		return "", err
 	}
 
 	if len(manifests) < 1 {
-		return model.Manifest{}, apperrors.ErrManifestNotFound
+		return "", apperrors.ErrManifestNotFound
 	}
 	manifest := manifests[0]
 	return r.createManifestGetResponse(manifest)
 }
 
-func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, content model.Manifest) error {
-	byteManifest, err := json.Marshal(content)
-	if err != nil {
-		return err
-	}
-	encodedManifest := base64.StdEncoding.EncodeToString(byteManifest)
+// TODO: manifest は今は base64 エンコードされた文字列
+func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, manifest string) error {
 
-	var manifest Manifest
+	var dbManifest Manifest
 	if domain.IsDigest(metadata.Reference) {
-		manifest = Manifest{
+		dbManifest = Manifest{
 			Name:     metadata.Name,
 			Digest:   metadata.Reference,
 			Tag:      metadata.Reference, // Digest のみの指定の場合は Tag の値を Digest にすることにする（OCI には定義されていない）
-			Manifest: encodedManifest,
+			Manifest: manifest,
 		}
 	} else {
-		digest, err := domain.CalcManifestDigest(content)
+		// TODO: ここでロジックが入っている問題も、引数を構造体にしたときに直す
+		// あとめちゃくちゃなので直す
+		decodedM, err := base64.StdEncoding.DecodeString(manifest)
+		var out bytes.Buffer
+		json.Indent(&out, decodedM, "", "\t")
+		b := out.Bytes()
 		if err != nil {
 			return err
 		}
-		manifest = Manifest{
+		digest, err := domain.CalcManifestDigest(b)
+		if err != nil {
+			return err
+		}
+		dbManifest = Manifest{
 			Name:     metadata.Name,
 			Digest:   digest,
 			Tag:      metadata.Reference,
-			Manifest: encodedManifest,
+			Manifest: manifest,
 		}
 	}
 
-	item, err := attributevalue.MarshalMap(manifest)
+	item, err := attributevalue.MarshalMap(dbManifest)
 	if err != nil {
 		return err
 	}

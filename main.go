@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/a-takamin/tcr/internal/client"
 	"github.com/a-takamin/tcr/internal/handler"
@@ -39,10 +38,6 @@ func main() {
 	bh := handler.NewBlobHandler(bu)
 
 	facade := handler.NewFacadeHandler(mh, bh)
-
-	r.GET("/v2", func(c *gin.Context) { // end-1
-		c.JSON(http.StatusOK, "")
-	})
 
 	r.HEAD("/v2/*remain", facade.HandleHEAD)     // end-2, end-3
 	r.GET("/v2/*remain", facade.HandleGET)       // end-2, end-3, end-8a

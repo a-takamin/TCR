@@ -28,15 +28,15 @@ services:
     entrypoint: /bin/bash # 無理やり上書きして shellscript を実行
     command: -c 'chmod +x /usr/local/bin/setup.sh && sh /usr/local/bin/setup.sh'
 
-  # dynamodb-admin:
-  #   image: "aaronshaf/dynamodb-admin:latest"
-  #   container_name: dynamodb-admin
-  #   environment:
-  #     - DYNAMO_ENDPOINT=dynamodb-local:8000
-  #   ports:
-  #     - "8001:8001"
-  #   depends_on:
-  #     - dynamodb-local
+  dynamodb-admin:
+    image: "aaronshaf/dynamodb-admin:latest"
+    container_name: dynamodb-admin
+    environment:
+      - DYNAMO_ENDPOINT=dynamodb-local:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - dynamodb-local
 
   s3-local:
     image: minio/minio:latest # minio という S3 互換のサービスを利用。代替は LocalStack

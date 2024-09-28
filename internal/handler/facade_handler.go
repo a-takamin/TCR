@@ -60,13 +60,40 @@ func (h FacadeHandler) HandleHEAD(c *gin.Context) {
 
 // 以下の API
 //
+// "/v2/"
+//
 // "/v2/:name/blobs/:digest"
 //
 // "/v2/:name/manifests/:reference"
 //
 // "/v2/:name/tags/list"
+//
+// "/v2/:name/blobs/uploads/:uuid"
 func (h FacadeHandler) HandleGET(c *gin.Context) {
 	remainPath := c.Param("remain")
+
+	// GET /v2/
+	if remainPath == "/" {
+		c.JSON(http.StatusOK, "")
+		return
+	}
+
+	// TODO: パスを判断する関数を作る
+	// 仕様に載っていない /v2/:name/blobs/uploads/:uuid のおかげで if が生えたため。これを機に綺麗にする
+	matched, _ := regexp.MatchString(`/blobs/uploads/`, remainPath)
+	if matched {
+		name, afterNamePath, err := pickUpName(remainPath, 3)
+		if err != nil {
+			slog.Error(err.Error())
+			c.JSON(http.StatusNotFound, "")
+			return
+		}
+		afterNameParts := strings.Split(afterNamePath, "/")
+		uuid := afterNameParts[3]
+		h.blobHandler.GetUploadStatusHandler(c, name, uuid)
+		return
+	}
+
 	name, afterNamePath, err := pickUpName(remainPath, 2)
 	if err != nil {
 		slog.Error(err.Error())
@@ -202,6 +229,8 @@ func (h FacadeHandler) HandleDELETE(c *gin.Context) {
 	}
 }
 
+// path から name 部分とその後ろ部分を抜き出す
+//
 // partsNumAfterName とはパスを / で区切った際に name の後ろにあるパートの数
 //
 // 例）/<name>/blobs/hoge = 2, /<name>/blobs/upload/uuid = 3

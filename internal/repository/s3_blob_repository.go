@@ -63,12 +63,12 @@ func (r BlobRepository) UploadBlob(key string, blob io.ReadCloser) error {
 	return err
 }
 
-func (r BlobRepository) GetChunkedBlobUploadProgress(name string) (dto.BlobUploadProgress, error) {
+func (r BlobRepository) GetChunkedBlobUploadProgress(uuid string) (dto.BlobUploadProgress, error) {
 	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
-				Value: name,
+			"Uuid": &types.AttributeValueMemberS{
+				Value: uuid,
 			},
 		},
 	})
