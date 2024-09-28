@@ -8,7 +8,7 @@ aws dynamodb create-table \
   --endpoint-url \
       http://dynamodb-local:8000 \
   --table-name \
-      dynamodb-local-table \
+      tcr-manifest-local \
   --attribute-definitions \
       AttributeName=Name,AttributeType=S \
       AttributeName=Digest,AttributeType=S \
@@ -43,7 +43,7 @@ aws dynamodb create-table \
   --endpoint-url \
       http://dynamodb-local:8000 \
   --table-name \
-      blob-upload-progress \
+      tcr-blob-upload-progress-local \
   --attribute-definitions \
       AttributeName=Uuid,AttributeType=S \
   --key-schema \
@@ -57,7 +57,7 @@ aws dynamodb create-table \
   --endpoint-url \
       http://dynamodb-local:8000 \
   --table-name \
-      blob-concat-progress \
+      tcr-blob-concat-progress-local \
   --attribute-definitions \
       AttributeName=Digest,AttributeType=S \
   --key-schema \
@@ -71,4 +71,4 @@ aws s3api create-bucket \
   --endpoint-url \
       http://s3-local:9000 \
   --bucket \
-      blob-local
+      tcr-blob-local

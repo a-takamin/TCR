@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/a-takamin/tcr/internal/client"
 	"github.com/a-takamin/tcr/internal/handler"
@@ -15,6 +16,27 @@ func main() {
 	r := gin.Default()
 	isLocal := true
 
+	env := os.Getenv("IS_LOCAL")
+	if env != "" {
+		isLocal = false
+	}
+	blobStorageName := os.Getenv("BLOB_STORAGE_NAME")
+	if blobStorageName == "" {
+		blobStorageName = "tcr-blob-local"
+	}
+	manifestTableName := os.Getenv("MANIFEST_TABLE_NAME")
+	if manifestTableName == "" {
+		manifestTableName = "tcr-manifest-local"
+	}
+	blobUploadProgressTableName := os.Getenv("BLOB_UPLOAD_PROGRESS_TABLE_NAME")
+	if blobUploadProgressTableName == "" {
+		blobUploadProgressTableName = "tcr-blob-upload-progress-local"
+	}
+	blobConcatProgressTableName := os.Getenv("BLOB_CONCAT_PROGRESS_TABLE_NAME")
+	if blobConcatProgressTableName == "" {
+		blobConcatProgressTableName = "tcr-blob-concat-progress-local"
+	}
+
 	dynamodbClient, err := client.NewDynamoDbClient(isLocal)
 	if err != nil {
 		log.Fatal(err)
@@ -27,8 +49,8 @@ func main() {
 		return
 	}
 
-	mRepo := repository.NewManifestRepository(dynamodbClient, "dynamodb-local-table")
-	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, "blob-upload-progress")
+	mRepo := repository.NewManifestRepository(dynamodbClient, manifestTableName)
+	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, blobUploadProgressTableName, blobConcatProgressTableName)
 
 	blobDomain := domain.NewBlobDomain(bRepo)
 	mu := usecase.NewManifestUseCase(mRepo)

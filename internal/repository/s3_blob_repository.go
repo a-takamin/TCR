@@ -14,10 +14,11 @@ import (
 )
 
 type BlobRepository struct {
-	client     *s3.Client
-	dClient    *dynamodb.Client
-	bucketName string
-	tableName  string
+	client                      *s3.Client
+	dClient                     *dynamodb.Client
+	bucketName                  string
+	blobUploadProgressTableName string
+	blobConcatProgressTableName string
 }
 
 type Blob struct {
@@ -26,12 +27,13 @@ type Blob struct {
 	Blob   string
 }
 
-func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dynamodb.Client, tableName string) *BlobRepository {
+func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dynamodb.Client, blobUploadProgressTName string, blobConcatProgressTName string) *BlobRepository {
 	return &BlobRepository{
-		client:     client,
-		bucketName: bucketName,
-		dClient:    dynamodbClient,
-		tableName:  tableName,
+		client:                      client,
+		bucketName:                  bucketName,
+		dClient:                     dynamodbClient,
+		blobUploadProgressTableName: blobUploadProgressTName,
+		blobConcatProgressTableName: blobConcatProgressTName,
 	}
 }
 
@@ -65,7 +67,7 @@ func (r BlobRepository) UploadBlob(key string, blob io.ReadCloser) error {
 
 func (r BlobRepository) GetChunkedBlobUploadProgress(uuid string) (dto.BlobUploadProgress, error) {
 	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(r.tableName),
+		TableName: aws.String(r.blobUploadProgressTableName),
 		Key: map[string]types.AttributeValue{
 			"Uuid": &types.AttributeValueMemberS{
 				Value: uuid,
@@ -90,7 +92,7 @@ func (r BlobRepository) PutChunkedBlobUpdateProgress(newProgress dto.BlobUploadP
 		return err
 	}
 	_, err = r.dClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(r.tableName),
+		TableName: aws.String(r.blobUploadProgressTableName),
 		Item:      item,
 	})
 
@@ -103,7 +105,7 @@ func (r BlobRepository) PutChunkedBlobConcatenateProgress(concatProgress dto.Blo
 		return err
 	}
 	_, err = r.dClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String("blob-concat-progress"),
+		TableName: aws.String(r.blobConcatProgressTableName),
 		Item:      item,
 	})
 	return err
@@ -111,7 +113,7 @@ func (r BlobRepository) PutChunkedBlobConcatenateProgress(concatProgress dto.Blo
 
 func (r BlobRepository) GetChunkedBlobConcatenateProgress(digest string) (dto.BlobConcatenateProgress, error) {
 	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String("blob-concat-progress"),
+		TableName: aws.String(r.blobConcatProgressTableName),
 		Key: map[string]types.AttributeValue{
 			"Digest": &types.AttributeValueMemberS{
 				Value: digest,

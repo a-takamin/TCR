@@ -19,8 +19,8 @@ import (
 )
 
 type ManifestRepository struct {
-	client    *dynamodb.Client
-	tableName string
+	client            *dynamodb.Client
+	manifestTableName string
 }
 
 type Manifest struct {
@@ -30,10 +30,10 @@ type Manifest struct {
 	Manifest string `dynamodbav:Manifest`
 }
 
-func NewManifestRepository(client *dynamodb.Client, tableName string) *ManifestRepository {
+func NewManifestRepository(client *dynamodb.Client, manifestTableName string) *ManifestRepository {
 	return &ManifestRepository{
-		client:    client,
-		tableName: tableName,
+		client:            client,
+		manifestTableName: manifestTableName,
 	}
 }
 
@@ -47,7 +47,7 @@ func (r ManifestRepository) QueryItem(ctx context.Context, params *dynamodb.Quer
 
 func (r ManifestRepository) createManifestByDigestGetInput(name string, digest string) *dynamodb.GetItemInput {
 	return &dynamodb.GetItemInput{
-		TableName: aws.String(r.tableName),
+		TableName: aws.String(r.manifestTableName),
 		Key: map[string]types.AttributeValue{
 			"Name": &types.AttributeValueMemberS{
 				Value: name,
@@ -104,7 +104,7 @@ func (r ManifestRepository) createGetManifestByTagInput(name string, tag string)
 		return &dynamodb.QueryInput{}, err
 	}
 	return &dynamodb.QueryInput{
-		TableName:                 aws.String(r.tableName),
+		TableName:                 aws.String(r.manifestTableName),
 		IndexName:                 aws.String("ManifestTagIndex"),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -119,7 +119,7 @@ func (r ManifestRepository) createGetTagsInput(name string) (*dynamodb.QueryInpu
 		return &dynamodb.QueryInput{}, err
 	}
 	return &dynamodb.QueryInput{
-		TableName:                 aws.String(r.tableName),
+		TableName:                 aws.String(r.manifestTableName),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
@@ -187,7 +187,7 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, manifes
 		return err
 	}
 	_, err = r.client.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(r.tableName),
+		TableName: aws.String(r.manifestTableName),
 		Item:      item,
 	})
 
@@ -200,7 +200,7 @@ func (r ManifestRepository) DeleteManifest(metadata model.ManifestMetadata) erro
 	}
 
 	input := &dynamodb.DeleteItemInput{
-		TableName: aws.String(r.tableName),
+		TableName: aws.String(r.manifestTableName),
 		Key: map[string]types.AttributeValue{
 			"Name": &types.AttributeValueMemberS{
 				Value: metadata.Name,
