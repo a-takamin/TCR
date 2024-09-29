@@ -1,8 +1,10 @@
 package usecase
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/dto"
@@ -142,17 +144,18 @@ func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (in
 
 	// temp にアップロードされた過去のレイヤーを結合する処理を非同期で実施。それをトリガー。今回は SQS
 	// 非同期の処理のステータスを確認できるテーブルに、 uuid を持つ temp たちが in progress であることを挿入。digest も。
-	err = u.StartBlobConcat(input.Digest)
+	err = u.StartBlobConcat(input.Name, input.Uuid, input.Digest)
 	if err != nil {
 		return offset, err
 	}
 
-	concatInput := dto.BlobConcatenateProgress{
-		Digest: input.Digest,
-		Status: "doing",
+	info, err := u.repo.GetChunkedBlobUploadProgress(input.Uuid)
+	if err != nil {
+		return 0, err
 	}
 
-	err = u.repo.PutChunkedBlobConcatenateProgress(concatInput)
+	info.Done = true
+	err = u.repo.PutChunkedBlobUpdateProgress(info)
 
 	if err != nil {
 		return offset, err
@@ -160,8 +163,40 @@ func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (in
 
 	return offset, nil
 }
-func (u BlobUseCase) StartBlobConcat(digest string) error {
-	// TODO: SQS を呼ぶ
+func (u BlobUseCase) StartBlobConcat(name string, uuid string, digest string) error {
+	// TODO: 非同期でやりたい
+	// TODO: ストリームでやりたい。今のままでは巨大なイメージに押しつぶされる
+
+	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+	if err != nil {
+		return err
+	}
+	if !info.Done {
+		// TODO: エラー処理。今は続ける。
+		slog.Warn("Done is false")
+	}
+
+	chunkNums := info.NextChunkNo - 1
+	if chunkNums < 0 {
+		return errors.New("NextChunkNo should be greater than or equal to 0")
+	}
+	var concatBlob []byte
+	for i := 0; i != chunkNums; i++ {
+		key := fmt.Sprintf("/%s/chunk/%s/%d", name, uuid, i)
+		// TODO: 永続化層にロジックを持たせているせいで苦労している。直す。
+		blobModel, err := u.repo.GetBlob("", key)
+		if err != nil {
+			// TODO: ちゃんとエラーハンドリング
+			slog.Warn("chunk not found")
+			return apperrors.ErrBlobNotFound
+		}
+		concatBlob = append(concatBlob, blobModel.Blob...)
+	}
+	key := fmt.Sprintf("%s/%s", name, digest)
+	err = u.repo.UploadBlob(key, bytes.NewReader(concatBlob))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"io"
 
@@ -57,10 +58,17 @@ func (r BlobRepository) GetBlob(name string, digest string) (model.Blob, error) 
 	}, nil
 }
 
-func (r BlobRepository) UploadBlob(key string, blob io.ReadCloser) error {
-	_, err := r.client.PutObject(context.TODO(), &s3.PutObjectInput{
+func (r BlobRepository) UploadBlob(key string, blob io.Reader) error {
+	// TODO: なぜか分からないが「"failed to seek body to start, request stream is not seekable”」が発生するので、
+	// 一度Blobを読み込んで再度Reader型にしている
+	b, err := io.ReadAll(blob)
+	if err != nil {
+		return err
+	}
+	_, err = r.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(key),
+		Body:   bytes.NewReader(b),
 	})
 	return err
 }

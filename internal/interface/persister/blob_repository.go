@@ -9,7 +9,7 @@ import (
 
 type BlobPersister interface {
 	GetBlob(name string, digest string) (model.Blob, error)
-	UploadBlob(key string, blob io.ReadCloser) error
+	UploadBlob(key string, blob io.Reader) error
 	GetChunkedBlobUploadProgress(name string) (dto.BlobUploadProgress, error)
 	PutChunkedBlobUpdateProgress(newProgress dto.BlobUploadProgress) error
 	PutChunkedBlobConcatenateProgress(concatProgress dto.BlobConcatenateProgress) error
