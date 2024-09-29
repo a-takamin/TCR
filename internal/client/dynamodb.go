@@ -9,7 +9,7 @@ import (
 )
 
 func NewDynamoDbClient(isLocal bool) (*dynamodb.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-northeast-1"))
 	if err != nil {
 		return nil, err
 	}

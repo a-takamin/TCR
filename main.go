@@ -50,7 +50,7 @@ func main() {
 	}
 
 	mRepo := repository.NewManifestRepository(dynamodbClient, manifestTableName)
-	bRepo := repository.NewBlobRepository(s3Client, "blob-local", dynamodbClient, blobUploadProgressTableName, blobConcatProgressTableName)
+	bRepo := repository.NewBlobRepository(s3Client, blobStorageName, dynamodbClient, blobUploadProgressTableName, blobConcatProgressTableName)
 
 	blobDomain := domain.NewBlobDomain(bRepo)
 	mu := usecase.NewManifestUseCase(mRepo)
