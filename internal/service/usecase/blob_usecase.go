@@ -176,7 +176,7 @@ func (u BlobUseCase) StartBlobConcat(name string, uuid string, digest string) er
 		slog.Warn("Done is false")
 	}
 
-	chunkNums := info.NextChunkNo - 1
+	chunkNums := info.NextChunkNo
 	if chunkNums < 0 {
 		return errors.New("NextChunkNo should be greater than or equal to 0")
 	}
