@@ -82,35 +82,35 @@ func (u BlobUseCase) UploadMonolithicBlob(input dto.UploadMonolithicBlobInput) e
 //
 // error: エラー
 func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64, error) {
-	err := u.blob.ValidateNameSpace(input.Name)
-	if err != nil {
-		return 0, err
-	}
-	err = u.blob.ValidateContentRange(input.ContentRange)
-	if err != nil {
-		return 0, err
-	}
-	startByte, err := u.blob.GetContentRangeStart(input.ContentRange)
-	if err != nil {
-		return 0, err
-	}
+	// err := u.blob.ValidateNameSpace(input.Name)
+	// if err != nil {
+	// 	return 0, err
+	// }
+	// err = u.blob.ValidateContentRange(input.ContentRange)
+	// if err != nil {
+	// 	return 0, err
+	// }
+	// startByte, err := u.blob.GetContentRangeStart(input.ContentRange)
+	// if err != nil {
+	// 	return 0, err
+	// }
 	info, err := u.repo.GetChunkedBlobUploadProgress(input.Uuid)
 	if err != nil {
 		return 0, err
 	}
-	if info.Done {
-		return info.ByteUploaded, apperrors.ErrAllChunksAreAlreadyUploaded
-	}
-	// TODO: 綺麗にする
-	if info.ByteUploaded == 0 {
-		if startByte != info.ByteUploaded {
-			return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
-		}
-	} else {
-		if startByte != info.ByteUploaded+1 {
-			return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
-		}
-	}
+	// if info.Done {
+	// 	return info.ByteUploaded, apperrors.ErrAllChunksAreAlreadyUploaded
+	// }
+	// // TODO: 綺麗にする
+	// if info.ByteUploaded == 0 {
+	// 	if startByte != info.ByteUploaded {
+	// 		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+	// 	}
+	// } else {
+	// 	if startByte != info.ByteUploaded+1 {
+	// 		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+	// 	}
+	// }
 
 	input.Key = fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, info.NextChunkNo)
 	err = u.repo.UploadBlob(input.Key, input.Blob)
