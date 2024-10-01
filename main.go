@@ -55,11 +55,13 @@ func main() {
 	blobDomain := domain.NewBlobDomain(bRepo)
 	mu := usecase.NewManifestUseCase(mRepo)
 	bu := usecase.NewBlobUseCase(blobDomain, bRepo)
+	tu := usecase.NewTagUseCase(mRepo)
 
 	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
+	th := handler.NewTagHandler(tu)
 
-	facade := handler.NewFacadeHandler(mh, bh)
+	facade := handler.NewFacadeHandler(mh, bh, th)
 
 	r.HEAD("/v2/*remain", facade.HandleHEAD)     // end-2, end-3
 	r.GET("/v2/*remain", facade.HandleGET)       // end-2, end-3, end-8a

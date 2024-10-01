@@ -92,13 +92,3 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context, name string, ref
 	}
 	c.JSON(http.StatusAccepted, "")
 }
-
-func (h *ManifestHandler) GetTagsHandler(c *gin.Context, name string) {
-	tags, err := h.usecase.GetTags(name)
-	if err != nil {
-		// TODO
-		c.JSON(http.StatusBadRequest, err)
-		return
-	}
-	c.JSON(http.StatusOK, tags)
-}
