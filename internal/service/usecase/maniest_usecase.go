@@ -82,11 +82,3 @@ func (u ManifestUseCase) DeleteManifest(metadata model.ManifestMetadata) error {
 
 	return u.repo.DeleteManifest(metadata)
 }
-
-func (u ManifestUseCase) GetTags(name string) (dto.GetTagsResponse, error) {
-	err := domain.ValidateNameSpace(name)
-	if err != nil {
-		return dto.GetTagsResponse{}, err
-	}
-	return u.repo.GetTags(name)
-}
