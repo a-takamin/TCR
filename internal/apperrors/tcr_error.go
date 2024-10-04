@@ -43,7 +43,8 @@ var TCRERR_LOGIC_ERROR = &TCRError{Message: "内部でエラーが発生しま�
 var TCRERR_TAG_INVALID = &TCRError{Message: "tag の形式が不正です"}
 var TCRERR_NAME_INVALID = &TCRError{Message: "name の形式が不正です"}
 var TCRERR_MANIFEST_INVALID = &TCRError{Message: "manifest の形式が不正です"}
-var TCRERR_NAME_NOT_FOUND = &TCRError{Message: "name を持つリポジトリがありません"}
+var TCRERR_MANIFEST_NOT_FOUND = &TCRError{Message: "対象の manifest がありません"}
+var TCRERR_NAME_NOT_FOUND = &TCRError{Message: "対象の name を持つリポジトリがありません"}
 
 var TCRERR_UNKNOWN = &TCRError{Message: "不明なエラー。このエラーが出た場合は適切な TCRError オブジェクトが利用されるようにエラー処理を修正してください"}
 

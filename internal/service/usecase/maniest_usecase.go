@@ -98,8 +98,42 @@ func (u ManifestUseCase) PutManifest(metadata model.ManifestMetadata, manifest [
 func (u ManifestUseCase) DeleteManifest(metadata model.ManifestMetadata) error {
 	err := domain.ValidateNameSpace(metadata.Name)
 	if err != nil {
-		return err
+		return apperrors.TCRERR_NAME_INVALID
 	}
 
-	return u.repo.DeleteManifest(metadata)
+	existsName, err := u.repo.ExistsName(metadata.Name)
+	if err != nil {
+		return apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsName {
+		return apperrors.TCRERR_NAME_NOT_FOUND
+	}
+
+	if domain.IsDigest(metadata.Reference) {
+		existsManifest, err := u.repo.ExistsManifestByDigest(metadata)
+		if err != nil {
+			apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+		}
+		if !existsManifest {
+			return apperrors.TCRERR_MANIFEST_NOT_FOUND
+		}
+		err = u.repo.DeleteManifestByDigest(metadata)
+		if err != nil {
+			apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+		}
+	}
+
+	// Tag
+	existsManifest, err := u.repo.ExistsManifestByTag(metadata)
+	if err != nil {
+		apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsManifest {
+		return apperrors.TCRERR_MANIFEST_NOT_FOUND
+	}
+	err = u.repo.DeleteManifestByTag(metadata)
+	if err != nil {
+		apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	return nil
 }

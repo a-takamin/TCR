@@ -112,7 +112,19 @@ func (h *ManifestHandler) DeleteManifestHandler(c *gin.Context, name string, ref
 
 	err := h.usecase.DeleteManifest(metadata)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_MANIFEST_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.MANIFEST_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 	c.JSON(http.StatusAccepted, "")

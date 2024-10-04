@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 
 	"github.com/a-takamin/tcr/internal/dto"
 	"github.com/a-takamin/tcr/internal/model"
@@ -89,68 +88,6 @@ func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, manifes
 	return err
 }
 
-func (r ManifestRepository) DeleteManifest(metadata model.ManifestMetadata) error {
-	if !domain.IsDigest(metadata.Reference) {
-		return r.DeleteManifestByTag(metadata)
-	}
-
-	input := &dynamodb.DeleteItemInput{
-		TableName: aws.String(r.manifestTableName),
-		Key: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
-				Value: metadata.Name,
-			},
-			"Digest": &types.AttributeValueMemberS{
-				Value: metadata.Reference,
-			},
-		},
-	}
-
-	_, err := r.client.DeleteItem(context.TODO(), input)
-	return err
-
-}
-
-func (r ManifestRepository) DeleteManifestByTag(metadata model.ManifestMetadata) error {
-	keyEx := expression.KeyAnd(
-		expression.Key("Name").Equal(expression.Value(metadata.Name)),
-		expression.Key("Tag").Equal(expression.Value(metadata.Reference)),
-	)
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
-	if err != nil {
-		return err
-	}
-	input := &dynamodb.QueryInput{
-		TableName:                 aws.String(r.manifestTableName),
-		IndexName:                 aws.String("ManifestTagIndex"),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		KeyConditionExpression:    expr.KeyCondition(),
-	}
-	if err != nil {
-		return err
-	}
-	resp, err := r.QueryItem(context.TODO(), input)
-	if err != nil {
-		return err
-	}
-	var manifests []Manifest
-	err = attributevalue.UnmarshalListOfMaps(resp.Items, &manifests)
-	if err != nil {
-		return err
-	}
-
-	if len(manifests) < 1 {
-		// TODO: make an error code
-		return errors.New("no manifest exists")
-	}
-	manifest := manifests[0]
-	return r.DeleteManifest(model.ManifestMetadata{
-		Name:      metadata.Name,
-		Reference: manifest.Digest,
-	})
-}
-
 func (r ManifestRepository) GetTags(name string) (dto.GetTagsResponse, error) {
 	input, err := r.createGetTagsInput(name)
 	if err != nil {
@@ -209,6 +146,28 @@ func (r ManifestRepository) ExistsName(name string) (bool, error) {
 		return false, err
 	}
 	if resp.Count == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (r ManifestRepository) ExistsManifestByDigest(metadata model.ManifestMetadata) (bool, error) {
+	manifest, err := r.GetManifestByDigest(metadata)
+	if err != nil {
+		return false, err
+	}
+	if manifest == "" {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (r ManifestRepository) ExistsManifestByTag(metadata model.ManifestMetadata) (bool, error) {
+	manifest, err := r.GetManifestByTag(metadata)
+	if err != nil {
+		return false, err
+	}
+	if manifest == "" {
 		return false, nil
 	}
 	return true, nil
@@ -294,4 +253,62 @@ func (r ManifestRepository) GetManifestByTag(metadata model.ManifestMetadata) (s
 	}
 
 	return string(decordedManifest), nil
+}
+
+func (r ManifestRepository) DeleteManifestByDigest(metadata model.ManifestMetadata) error {
+	input := &dynamodb.DeleteItemInput{
+		TableName: aws.String(r.manifestTableName),
+		Key: map[string]types.AttributeValue{
+			"Name": &types.AttributeValueMemberS{
+				Value: metadata.Name,
+			},
+			"Digest": &types.AttributeValueMemberS{
+				Value: metadata.Reference,
+			},
+		},
+	}
+
+	_, err := r.client.DeleteItem(context.TODO(), input)
+	return err
+
+}
+
+func (r ManifestRepository) DeleteManifestByTag(metadata model.ManifestMetadata) error {
+	keyEx := expression.KeyAnd(
+		expression.Key("Name").Equal(expression.Value(metadata.Name)),
+		expression.Key("Tag").Equal(expression.Value(metadata.Reference)),
+	)
+	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	if err != nil {
+		return err
+	}
+	input := &dynamodb.QueryInput{
+		TableName:                 aws.String(r.manifestTableName),
+		IndexName:                 aws.String("ManifestTagIndex"),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		KeyConditionExpression:    expr.KeyCondition(),
+	}
+	if err != nil {
+		return err
+	}
+	resp, err := r.QueryItem(context.TODO(), input)
+	if err != nil {
+		return err
+	}
+	var manifests []Manifest
+	err = attributevalue.UnmarshalListOfMaps(resp.Items, &manifests)
+	if err != nil {
+		return err
+	}
+
+	if len(manifests) < 1 {
+		// no such tag, but success
+		return nil
+	}
+	manifest := manifests[0]
+	return r.DeleteManifestByDigest(model.ManifestMetadata{
+		Name:      metadata.Name,
+		Reference: manifest.Digest,
+	})
 }
