@@ -33,8 +33,28 @@ func (u BlobUseCase) ExistsBlob(input dto.GetBlobInput) (model.Blob, error) {
 func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
 	err := u.blob.ValidateNameSpace(input.Name)
 	if err != nil {
-		return model.Blob{}, err
+		return model.Blob{}, apperrors.TCRERR_NAME_INVALID
 	}
+	err = domain.ValidateDigest(input.Digest)
+	if err != nil {
+		return model.Blob{}, apperrors.TCRERR_DIGEST_INVALID
+	}
+	// existsName が manifest 側と被ってしまった。つまりドメインの切り方を間違えている。
+	// existsName, err := u.repo.ExistsName(metadata.Name)
+	// if err != nil {
+	// 	return dto.GetManifestResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	// }
+	// if !existsName {
+	// 	return dto.GetManifestResponse{}, apperrors.TCRERR_NAME_NOT_FOUND
+	// }
+	existsBlob, err := u.repo.ExistsBlob(input.Name, input.Digest)
+	if err != nil {
+		return model.Blob{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsBlob {
+		return model.Blob{}, apperrors.TCRERR_BLOB_NOT_FOUND
+	}
+
 	blob, err := u.repo.GetBlob(input.Name, input.Digest)
 	if err != nil {
 		// TODO: ちゃんとエラーハンドリング

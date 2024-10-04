@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/dto"
 	"github.com/a-takamin/tcr/internal/interface/persister"
 	"github.com/a-takamin/tcr/internal/service/domain"
@@ -22,5 +23,17 @@ func (u TagUseCase) GetTags(name string) (dto.GetTagsResponse, error) {
 	if err != nil {
 		return dto.GetTagsResponse{}, err
 	}
-	return u.repo.GetTags(name)
+
+	existsName, err := u.repo.ExistsName(name)
+	if err != nil {
+		return dto.GetTagsResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	resp, err := u.repo.GetTags(name)
+	if err != nil {
+		return dto.GetTagsResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsName {
+		return dto.GetTagsResponse{}, apperrors.TCRERR_NAME_NOT_FOUND
+	}
+	return resp, nil
 }
