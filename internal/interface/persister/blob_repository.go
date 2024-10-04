@@ -15,4 +15,5 @@ type BlobPersister interface {
 	PutChunkedBlobConcatenateProgress(concatProgress dto.BlobConcatenateProgress) error
 	GetChunkedBlobConcatenateProgress(digest string) (dto.BlobConcatenateProgress, error)
 	DeleteBlob(dto.DeleteBlobInput) error
+	ExistsBlob(name string, digest string) (bool, error)
 }

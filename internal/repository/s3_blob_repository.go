@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 
 	"github.com/a-takamin/tcr/internal/dto"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3Type "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type BlobRepository struct {
@@ -147,4 +149,20 @@ func (r BlobRepository) DeleteBlob(input dto.DeleteBlobInput) error {
 		Key:    aws.String(input.Name + "/" + input.Digest),
 	})
 	return err
+}
+
+func (r BlobRepository) ExistsBlob(name string, digest string) (bool, error) {
+	_, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(name + "/" + digest),
+	})
+	// GetObject はオブジェクトがないときにエラーを返すためこれでよい
+	if err != nil {
+		var notFoundError *s3Type.NotFound
+		if errors.As(err, &notFoundError) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
