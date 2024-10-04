@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -50,7 +49,7 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, refere
 	if err != nil {
 		slog.Error(err.Error())
 		switch {
-		case errors.Is(err, apperrors.TCRERR_INVALID_NAME):
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID):
 			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
 		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
 			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
@@ -77,17 +76,29 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		err := fmt.Errorf("could not read manifest: %w", err)
-		log.Println(err.Error())
-		c.JSON(http.StatusBadRequest, err)
+		err := fmt.Errorf("could not read manifest body: %w", err)
+		slog.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, "could not read manifest body")
 		return
 	}
 
-	// TODO: manifest が指す Blob があるかどうか MUST で確認する。なければ 404 を返す。
-
 	err = h.usecase.PutManifest(metadata, body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_MANIFEST_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.MANIFEST_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_LOGIC_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 	c.Redirect(http.StatusCreated, c.Request.Host+c.Request.URL.Path)

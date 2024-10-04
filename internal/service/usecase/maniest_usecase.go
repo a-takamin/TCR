@@ -29,7 +29,7 @@ func (u ManifestUseCase) ExistsManifest(metadata model.ManifestMetadata) (dto.Ge
 func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetManifestResponse, error) {
 	err := domain.ValidateNameSpace(metadata.Name)
 	if err != nil {
-		return dto.GetManifestResponse{}, apperrors.TCRERR_INVALID_NAME
+		return dto.GetManifestResponse{}, apperrors.TCRERR_NAME_INVALID
 	}
 
 	existsName, err := u.repo.ExistsName(metadata.Name)
@@ -71,20 +71,26 @@ func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetMa
 func (u ManifestUseCase) PutManifest(metadata model.ManifestMetadata, manifest []byte) error {
 	err := domain.ValidateNameSpace(metadata.Name)
 	if err != nil {
-		return err
+		return apperrors.TCRERR_NAME_INVALID
 	}
 
 	err = domain.ValidateManifest(metadata, manifest)
 	if err != nil {
-		return err
+		return apperrors.TCRERR_MANIFEST_INVALID.Wrap(err)
+	}
+
+	existsName, err := u.repo.ExistsName(metadata.Name)
+	if err != nil {
+		return apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsName {
+		return apperrors.TCRERR_NAME_NOT_FOUND
 	}
 
 	encodedManifest := base64.StdEncoding.EncodeToString(manifest)
-
-	// string がいくべきか？
 	err = u.repo.PutManifest(metadata, encodedManifest)
 	if err != nil {
-		return err
+		return apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
 	return nil
 }

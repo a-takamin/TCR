@@ -40,8 +40,9 @@ var TCRERR_PERSISTER_ERROR = &TCRError{Message: "永続化層でエラーが発�
 // TODO: これももうちょっと細かくした方が良いかも
 var TCRERR_LOGIC_ERROR = &TCRError{Message: "内部でエラーが発生しました"}
 
-var TCRERR_INVALID_TAG = &TCRError{Message: "tag の形式が不正です"}
-var TCRERR_INVALID_NAME = &TCRError{Message: "name の形式が不正です"}
+var TCRERR_TAG_INVALID = &TCRError{Message: "tag の形式が不正です"}
+var TCRERR_NAME_INVALID = &TCRError{Message: "name の形式が不正です"}
+var TCRERR_MANIFEST_INVALID = &TCRError{Message: "manifest の形式が不正です"}
 var TCRERR_NAME_NOT_FOUND = &TCRError{Message: "name を持つリポジトリがありません"}
 
 var TCRERR_UNKNOWN = &TCRError{Message: "不明なエラー。このエラーが出た場合は適切な TCRError オブジェクトが利用されるようにエラー処理を修正してください"}
@@ -75,7 +76,7 @@ func CreateErrorResponse(err error) (uint, OCIErrorResponse) {
 		err = TCRERR_UNKNOWN.Wrap(err)
 	}
 	switch err {
-	case TCRERR_INVALID_NAME:
+	case TCRERR_NAME_INVALID:
 		return 400, NAME_INVALID.CreateResponse("")
 	default:
 		return 500, OCIErrorResponse{Errors: []OCIError{{Detail: "不明なエラー"}}}

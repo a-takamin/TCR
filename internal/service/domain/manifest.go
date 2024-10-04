@@ -17,7 +17,7 @@ func ValidateNameSpace(namespace string) error {
 	if matched {
 		return nil
 	}
-	return apperrors.TCRERR_INVALID_NAME
+	return apperrors.TCRERR_NAME_INVALID
 }
 
 // マニフェストの仕様: https://github.com/opencontainers/image-spec/blob/v1.0.1/manifest.md
