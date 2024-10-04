@@ -24,7 +24,7 @@ func (u TagUseCase) GetTags(name string) (dto.GetTagsResponse, error) {
 		return dto.GetTagsResponse{}, err
 	}
 
-	exists, err := u.repo.ExistsName(name)
+	existsName, err := u.repo.ExistsName(name)
 	if err != nil {
 		return dto.GetTagsResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
@@ -32,7 +32,7 @@ func (u TagUseCase) GetTags(name string) (dto.GetTagsResponse, error) {
 	if err != nil {
 		return dto.GetTagsResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
-	if !exists {
+	if !existsName {
 		return dto.GetTagsResponse{}, apperrors.TCRERR_NAME_NOT_FOUND
 	}
 	return resp, nil

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/dto"
 	"github.com/a-takamin/tcr/internal/interface/persister"
 	"github.com/a-takamin/tcr/internal/model"
@@ -28,23 +29,37 @@ func (u ManifestUseCase) ExistsManifest(metadata model.ManifestMetadata) (dto.Ge
 func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetManifestResponse, error) {
 	err := domain.ValidateNameSpace(metadata.Name)
 	if err != nil {
-		return dto.GetManifestResponse{}, err
+		return dto.GetManifestResponse{}, apperrors.TCRERR_INVALID_NAME
 	}
 
-	manifest, err := u.repo.GetManifest(metadata)
+	existsName, err := u.repo.ExistsName(metadata.Name)
 	if err != nil {
-		return dto.GetManifestResponse{}, err
+		return dto.GetManifestResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsName {
+		return dto.GetManifestResponse{}, apperrors.TCRERR_NAME_NOT_FOUND
+	}
+
+	var manifest string
+	if domain.IsDigest(metadata.Reference) {
+		manifest, err = u.repo.GetManifestByDigest(metadata)
+	} else {
+		// = tag
+		manifest, err = u.repo.GetManifestByTag(metadata)
+	}
+	if err != nil {
+		return dto.GetManifestResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
 
 	var out bytes.Buffer
 	json.Indent(&out, []byte(manifest), "", "\t")
 	b := out.Bytes()
 	if err != nil {
-		return dto.GetManifestResponse{}, err
+		return dto.GetManifestResponse{}, apperrors.TCRERR_LOGIC_ERROR.Wrap(err)
 	}
 	digest, err := domain.CalcManifestDigest(b)
 	if err != nil {
-		return dto.GetManifestResponse{}, err
+		return dto.GetManifestResponse{}, apperrors.TCRERR_LOGIC_ERROR.Wrap(err)
 	}
 
 	return dto.GetManifestResponse{

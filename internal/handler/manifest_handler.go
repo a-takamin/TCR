@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/a-takamin/tcr/internal/apperrors"
@@ -46,7 +48,19 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, refere
 
 	resp, err := h.usecase.GetManifest(metadata)
 	if err != nil {
-		apperrors.ErrorHanlder(c, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_INVALID_NAME):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_LOGIC_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 

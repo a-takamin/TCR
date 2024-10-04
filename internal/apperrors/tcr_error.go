@@ -36,11 +36,15 @@ func ErrorHanlder(c *gin.Context, err error) {
 
 // TODO: persister をうまくリファクタできたらもうすこし具体的にする
 var TCRERR_PERSISTER_ERROR = &TCRError{Message: "永続化層でエラーが発生しました"}
-var TCRERR_UNKNOWN = &TCRError{Message: "不明なエラー。このエラーが出た場合は適切な TCRError オブジェクトが利用されるようにエラー処理を修正してください"}
-var TCRERR_INVALID_NAME = &TCRError{Message: "name が不正です"}
+
+// TODO: これももうちょっと細かくした方が良いかも
+var TCRERR_LOGIC_ERROR = &TCRError{Message: "内部でエラーが発生しました"}
+
+var TCRERR_INVALID_TAG = &TCRError{Message: "tag の形式が不正です"}
+var TCRERR_INVALID_NAME = &TCRError{Message: "name の形式が不正です"}
 var TCRERR_NAME_NOT_FOUND = &TCRError{Message: "name を持つリポジトリがありません"}
-var TCRERR_TAGS_NOT_FOUND = &TCRError{Message: "tag がありません"}
-var TCRERR_GET_TAGS_ERROR = &TCRError{Message: "tag の取得中にエラーが発生しました"}
+
+var TCRERR_UNKNOWN = &TCRError{Message: "不明なエラー。このエラーが出た場合は適切な TCRError オブジェクトが利用されるようにエラー処理を修正してください"}
 
 // OCI Error Code はすべてのエラーレスポンスに対して必須というわけではないので、TCR のエラーを作る
 type TCRError struct {
