@@ -11,4 +11,6 @@ type ManifestPersister interface {
 	PutManifest(metadata model.ManifestMetadata, manifest string) error
 	DeleteManifest(metadata model.ManifestMetadata) error
 	GetTags(name string) (dto.GetTagsResponse, error)
+	// リファクタ
+	ExistsName(name string) (bool, error)
 }

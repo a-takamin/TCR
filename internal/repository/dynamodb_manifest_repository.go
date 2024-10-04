@@ -264,3 +264,32 @@ func (r ManifestRepository) GetTags(name string) (dto.GetTagsResponse, error) {
 
 	return tags, nil
 }
+
+// リファクタ
+// / Name があるかどうかを確認する関数
+// / Manifest があるかどうかを確認する関数（本当は分かれているが今のDynamoの構造だと上と同義なので上を呼び出す）
+// / Blob があるかどうかを確認する関数
+// / Tags があるかどうかを確認する関数
+// リファクタメモここまで
+
+func (r ManifestRepository) ExistsName(name string) (bool, error) {
+	keyEx := expression.Key("Name").Equal(expression.Value(name))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	if err != nil {
+		return false, err
+	}
+	input := &dynamodb.QueryInput{
+		TableName:                 aws.String(r.manifestTableName),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		KeyConditionExpression:    expr.KeyCondition(),
+	}
+	resp, err := r.QueryItem(context.TODO(), input)
+	if err != nil {
+		return false, err
+	}
+	if resp.Count == 0 {
+		return false, nil
+	}
+	return true, nil
+}
