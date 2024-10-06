@@ -14,14 +14,12 @@ import (
 type FacadeHandler struct {
 	blobHandler     *BlobHandler
 	manifestHandler *ManifestHandler
-	tagHandler      *TagHandler
 }
 
-func NewFacadeHandler(mh *ManifestHandler, bh *BlobHandler, th *TagHandler) *FacadeHandler {
+func NewFacadeHandler(mh *ManifestHandler, bh *BlobHandler) *FacadeHandler {
 	return &FacadeHandler{
 		blobHandler:     bh,
 		manifestHandler: mh,
-		tagHandler:      th,
 	}
 }
 
@@ -113,7 +111,7 @@ func (h FacadeHandler) HandleGET(c *gin.Context) {
 	case "manifests":
 		h.manifestHandler.GetManifestHandler(c, name, lastPart)
 	case "tags":
-		h.tagHandler.GetTagsHandler(c, name)
+		h.manifestHandler.GetTagsHandler(c, name)
 	default:
 		slog.Error("path is invalid: " + remainPath)
 		c.JSON(http.StatusNotFound, "")

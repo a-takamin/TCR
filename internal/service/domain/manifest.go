@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -11,14 +12,6 @@ import (
 	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/model"
 )
-
-func ValidateNameSpace(namespace string) error {
-	matched, _ := regexp.MatchString(`^[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*$`, namespace)
-	if matched {
-		return nil
-	}
-	return apperrors.TCRERR_NAME_INVALID
-}
 
 // マニフェストの仕様: https://github.com/opencontainers/image-spec/blob/v1.0.1/manifest.md
 //
@@ -82,4 +75,18 @@ func IsDigest(digestLike string) bool {
 
 func CalcBlobDigest(blob model.Blob) (string, error) {
 	return "", nil
+}
+
+func CalcManifestDigestRefactor(manifest []byte) (string, error) {
+	// 改行や空白によってハッシュ計算のずれが起らぬように統一する
+	var out bytes.Buffer
+	err := json.Indent(&out, manifest, "", "\t")
+	if err != nil {
+		return "", err
+	}
+	b := out.Bytes()
+
+	p := sha256.Sum256(b)
+	return fmt.Sprintf("sha256:%s", fmt.Sprintf("%x", p)), nil
+
 }

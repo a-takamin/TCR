@@ -24,8 +24,7 @@ erDiagram
         string Digest "ダイジェスト"
     }
 
-    BlobConcat {
-      string Digest PK "ダイジェスト"
-      string Status "結合処理の状況。notyet, doing, done, error"
+    Repository {
+      string Name PK "リポジトリ名"
     }
 ```

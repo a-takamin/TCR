@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,14 +22,26 @@ func NewBlobHandler(s *usecase.BlobUseCase) *BlobHandler {
 	}
 }
 func (h *BlobHandler) ExistsBlobHandler(c *gin.Context, name string, digest string) {
-	metadata := dto.GetBlobInput{
+	metadata := dto.FindBlobInput{
 		Name:   name,
 		Digest: digest,
 	}
 
-	_, err := h.usecase.GetBlob(metadata)
+	_, err := h.usecase.ExistsBlob(metadata)
 	if err != nil {
-		apperrors.ErrorHanlder(c, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID), errors.Is(err, apperrors.TCRERR_DIGEST_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND), errors.Is(err, apperrors.TCRERR_BLOB_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_LOGIC_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 
@@ -37,14 +50,26 @@ func (h *BlobHandler) ExistsBlobHandler(c *gin.Context, name string, digest stri
 }
 
 func (h *BlobHandler) GetBlobHandler(c *gin.Context, name string, digest string) {
-	metadata := dto.GetBlobInput{
+	metadata := dto.FindBlobInput{
 		Name:   name,
 		Digest: digest,
 	}
 
 	blob, err := h.usecase.GetBlob(metadata)
 	if err != nil {
-		apperrors.ErrorHanlder(c, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID), errors.Is(err, apperrors.TCRERR_DIGEST_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND), errors.Is(err, apperrors.TCRERR_BLOB_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_LOGIC_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 
@@ -63,6 +88,7 @@ func (h *BlobHandler) StartUploadBlobHandler(c *gin.Context, name string) {
 	c.JSON(http.StatusAccepted, "")
 }
 
+// Put はモノリスとチャンクのラストとの 2 通りがある
 func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string) {
 	digest := c.Query("digest")
 	ContentLength := c.Request.ContentLength
@@ -179,7 +205,7 @@ func (h *BlobHandler) DeleteBlobHandler(c *gin.Context, name string, digest stri
 }
 
 func (h *BlobHandler) GetUploadStatusHandler(c *gin.Context, name string, uuid string) {
-	offset, err := h.usecase.GetBlobUploadStatus(name, uuid)
+	offset, err := h.usecase.GetBlobUploadOffset(name, uuid)
 	if err != nil {
 		slog.Error(err.Error())
 		// TODO: http status

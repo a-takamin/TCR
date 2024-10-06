@@ -1,19 +1,14 @@
 package persister
 
 import (
-	"io"
-
 	"github.com/a-takamin/tcr/internal/dto"
-	"github.com/a-takamin/tcr/internal/model"
 )
 
 type BlobPersister interface {
-	GetBlob(name string, digest string) (model.Blob, error)
-	UploadBlob(key string, blob io.Reader) error
-	GetChunkedBlobUploadProgress(name string) (dto.BlobUploadProgress, error)
-	PutChunkedBlobUpdateProgress(newProgress dto.BlobUploadProgress) error
-	PutChunkedBlobConcatenateProgress(concatProgress dto.BlobConcatenateProgress) error
-	GetChunkedBlobConcatenateProgress(digest string) (dto.BlobConcatenateProgress, error)
-	DeleteBlob(dto.DeleteBlobInput) error
-	ExistsBlob(name string, digest string) (bool, error)
+	ExistsBlob(input dto.ExistsBlobInput) (bool, error)
+	FindBlob(input dto.FindBlobInput) (dto.FindBlobOutput, error)
+	FindChunkedBlob(input dto.FindChunkedBlobInput) (dto.FindBlobOutput, error)
+	SaveBlob(input dto.SaveBlobInput) error
+	SaveChunkedBlob(input dto.SaveChunkedBlobInput) error
+	DeleteBlob(input dto.DeleteBlobInput) error
 }

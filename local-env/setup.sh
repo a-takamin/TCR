@@ -57,11 +57,11 @@ aws dynamodb create-table \
   --endpoint-url \
       http://dynamodb-local:8000 \
   --table-name \
-      tcr-blob-concat-progress-local \
+      tcr-repository-local \
   --attribute-definitions \
-      AttributeName=Digest,AttributeType=S \
+      AttributeName=Name,AttributeType=S \
   --key-schema \
-      AttributeName=Digest,KeyType=HASH \
+      AttributeName=Name,KeyType=HASH \
   --billing-mode \
       PAY_PER_REQUEST 
 

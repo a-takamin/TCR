@@ -18,7 +18,7 @@ func TestValidateNameSpace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := ValidateNameSpace(tt.namespace)
+			got := ValidateName(tt.namespace)
 			if got != nil {
 				t.Fatalf("got is %s, but want nil", got.Error())
 			}

@@ -2,9 +2,37 @@ package dto
 
 import "io"
 
-type GetBlobInput struct {
+type ExistsBlobInput struct {
 	Name   string
 	Digest string
+}
+
+type FindBlobInput struct {
+	Name   string
+	Digest string
+}
+
+type FindChunkedBlobInput struct {
+	Name       string
+	Uuid       string
+	ChunkSeqNo int
+}
+
+type FindBlobOutput struct {
+	Blob []byte
+}
+
+type SaveBlobInput struct {
+	Name   string
+	Digest string
+	Blob   io.Reader
+}
+
+type SaveChunkedBlobInput struct {
+	Name       string
+	Uuid       string
+	ChunkSeqNo int
+	Blob       io.Reader
 }
 
 type DeleteBlobInput struct {
@@ -39,9 +67,4 @@ type BlobUploadProgress struct {
 	NextChunkNo  int    `json:"NextChunkNo"`
 	Done         bool   `json:"Done"`
 	Digest       string `json:"Digest"`
-}
-
-type BlobConcatenateProgress struct {
-	Digest string `json:"Digest"`
-	Status string `json:"Status"`
 }
