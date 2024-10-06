@@ -15,23 +15,25 @@ import (
 )
 
 type BlobUseCase struct {
-	blob *domain.BlobDomain
-	repo persister.BlobPersister
+	blobRepo     persister.BlobPersister
+	progressRepo persister.BlobUploadProgressPersister
+	repoRepo     persister.RepositoryPersister
 }
 
-func NewBlobUseCase(s *domain.BlobDomain, r persister.BlobPersister) *BlobUseCase {
+func NewBlobUseCase(blobRepo persister.BlobPersister, progressRepo persister.BlobUploadProgressPersister, repoRepo persister.RepositoryPersister) *BlobUseCase {
 	return &BlobUseCase{
-		blob: s,
-		repo: r,
+		blobRepo:     blobRepo,
+		progressRepo: progressRepo,
+		repoRepo:     repoRepo,
 	}
 }
 
-func (u BlobUseCase) ExistsBlob(input dto.GetBlobInput) (model.Blob, error) {
+func (u BlobUseCase) ExistsBlob(input dto.FindBlobInput) (model.Blob, error) {
 	return u.GetBlob(input)
 }
 
-func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
-	err := u.blob.ValidateNameSpace(input.Name)
+func (u BlobUseCase) GetBlob(input dto.FindBlobInput) (model.Blob, error) {
+	err := domain.ValidateName(input.Name)
 	if err != nil {
 		return model.Blob{}, apperrors.TCRERR_NAME_INVALID
 	}
@@ -39,15 +41,19 @@ func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
 	if err != nil {
 		return model.Blob{}, apperrors.TCRERR_DIGEST_INVALID
 	}
-	// existsName が manifest 側と被ってしまった。つまりドメインの切り方を間違えている。
-	// existsName, err := u.repo.ExistsName(metadata.Name)
-	// if err != nil {
-	// 	return dto.GetManifestResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
-	// }
-	// if !existsName {
-	// 	return dto.GetManifestResponse{}, apperrors.TCRERR_NAME_NOT_FOUND
-	// }
-	existsBlob, err := u.repo.ExistsBlob(input.Name, input.Digest)
+	existsName, err := u.repoRepo.ExistsRepository(dto.ExistsRepositoryInput{
+		Name: input.Name,
+	})
+	if err != nil {
+		return model.Blob{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+	}
+	if !existsName {
+		return model.Blob{}, apperrors.TCRERR_NAME_NOT_FOUND
+	}
+	existsBlob, err := u.blobRepo.ExistsBlob(dto.ExistsBlobInput{
+		Name:   input.Name,
+		Digest: input.Digest,
+	})
 	if err != nil {
 		return model.Blob{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
@@ -55,12 +61,18 @@ func (u BlobUseCase) GetBlob(input dto.GetBlobInput) (model.Blob, error) {
 		return model.Blob{}, apperrors.TCRERR_BLOB_NOT_FOUND
 	}
 
-	blob, err := u.repo.GetBlob(input.Name, input.Digest)
+	resp, err := u.blobRepo.FindBlob(dto.FindBlobInput{
+		Name:   input.Name,
+		Digest: input.Digest,
+	})
 	if err != nil {
-		// TODO: ちゃんとエラーハンドリング
-		return model.Blob{}, apperrors.ErrBlobNotFound
+		return model.Blob{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
-	return blob, err
+	return model.Blob{
+		Name:   input.Name,
+		Digest: input.Digest,
+		Blob:   resp.Blob,
+	}, nil
 }
 
 func (u BlobUseCase) StartBlobUpload(name string) (string, error) {
@@ -68,13 +80,18 @@ func (u BlobUseCase) StartBlobUpload(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	info := dto.BlobUploadProgress{
+	err = u.progressRepo.SaveBlobUploadProgress(dto.SaveBlobUploadProgressInput{
 		Uuid:         uid.String(),
 		NextChunkNo:  0,
 		ByteUploaded: 0,
-		Done:         false,
+		Digest:       "",
+	})
+	if err != nil {
+		return "", err
 	}
-	err = u.repo.PutChunkedBlobUpdateProgress(info)
+	err = u.repoRepo.SaveRepository(dto.SaveRepositoryInput{
+		Name: name,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -82,16 +99,20 @@ func (u BlobUseCase) StartBlobUpload(name string) (string, error) {
 }
 
 func (u BlobUseCase) UploadMonolithicBlob(input dto.UploadMonolithicBlobInput) error {
-	err := u.blob.ValidateNameSpace(input.Name)
+	err := domain.ValidateName(input.Name)
 	if err != nil {
 		return err
 	}
-	err = u.blob.ValidateDigest(input.Digest)
+	err = domain.ValidateDigest(input.Digest)
 	if err != nil {
 		return err
 	}
-	key := fmt.Sprintf("%s/%s", input.Name, input.Digest)
-	err = u.repo.UploadBlob(key, input.Blob)
+
+	err = u.blobRepo.SaveBlob(dto.SaveBlobInput{
+		Name:   input.Name,
+		Digest: input.Digest,
+		Blob:   input.Blob,
+	})
 	if err != nil {
 		return err
 	}
@@ -102,52 +123,61 @@ func (u BlobUseCase) UploadMonolithicBlob(input dto.UploadMonolithicBlobInput) e
 //
 // error: エラー
 func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64, error) {
-	// err := u.blob.ValidateNameSpace(input.Name)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	// err = u.blob.ValidateContentRange(input.ContentRange)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	// startByte, err := u.blob.GetContentRangeStart(input.ContentRange)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	info, err := u.repo.GetChunkedBlobUploadProgress(input.Uuid)
+	err := domain.ValidateName(input.Name)
 	if err != nil {
 		return 0, err
 	}
-	// if info.Done {
-	// 	return info.ByteUploaded, apperrors.ErrAllChunksAreAlreadyUploaded
-	// }
-	// // TODO: 綺麗にする
+	err = domain.ValidateContentRange(input.ContentRange)
+	if err != nil {
+		return 0, err
+	}
+	startByte, err := domain.GetContentRangeStart(input.ContentRange)
+	if err != nil {
+		return 0, err
+	}
+	endByte, err := domain.GetContentRangeEnd(input.ContentRange)
+	if err != nil {
+		return 0, err
+	}
+
+	info, err := u.progressRepo.FindBlobUploadProgress(dto.FindBlobUploadProgressInput{
+		Uuid: input.Uuid,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	// TODO: 綺麗にする
 	// if info.ByteUploaded == 0 {
-	// 	if startByte != info.ByteUploaded {
-	// 		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
-	// 	}
+	if startByte != info.ByteUploaded {
+		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
+	}
 	// } else {
 	// 	if startByte != info.ByteUploaded+1 {
 	// 		return info.ByteUploaded, apperrors.ErrChunkIsNotInSequence
 	// 	}
 	// }
 
-	input.Key = fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, info.NextChunkNo)
-	err = u.repo.UploadBlob(input.Key, input.Blob)
+	err = u.blobRepo.SaveChunkedBlob(dto.SaveChunkedBlobInput{
+		Name:       input.Name,
+		Uuid:       input.Uuid,
+		ChunkSeqNo: info.NextChunkNo,
+		Blob:       input.Blob,
+	})
 	if err != nil {
 		return info.ByteUploaded, err
 	}
 
-	info.Uuid = input.Uuid
-	info.NextChunkNo += 1
-	info.ByteUploaded += input.ContentLength - 1
-	info.Done = input.IsLast
-
-	err = u.repo.PutChunkedBlobUpdateProgress(info)
+	err = u.progressRepo.SaveBlobUploadProgress(dto.SaveBlobUploadProgressInput{
+		Uuid:         input.Uuid,
+		ByteUploaded: info.ByteUploaded + input.ContentLength,
+		NextChunkNo:  info.NextChunkNo + 1,
+		Digest:       input.Digest,
+	})
 	if err != nil {
-		return (info.ByteUploaded - input.ContentLength), err
+		return info.ByteUploaded, err
 	}
-	return info.ByteUploaded, nil
+	return endByte, nil
 }
 
 func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (int64, error) {
@@ -162,21 +192,24 @@ func (u BlobUseCase) UploadLastChunkedBlob(input dto.UploadChunkedBlobInput) (in
 		}
 	}
 
-	// temp にアップロードされた過去のレイヤーを結合する処理を非同期で実施。それをトリガー。今回は SQS
-	// 非同期の処理のステータスを確認できるテーブルに、 uuid を持つ temp たちが in progress であることを挿入。digest も。
-	err = u.StartBlobConcat(input.Name, input.Uuid, input.Digest)
+	info, err := u.progressRepo.FindBlobUploadProgress(dto.FindBlobUploadProgressInput{
+		Uuid: input.Uuid,
+	})
 	if err != nil {
 		return offset, err
 	}
 
-	info, err := u.repo.GetChunkedBlobUploadProgress(input.Uuid)
+	err = u.progressRepo.SaveBlobUploadProgress(dto.SaveBlobUploadProgressInput{
+		Uuid:         info.Uuid,
+		ByteUploaded: info.ByteUploaded,
+		NextChunkNo:  info.NextChunkNo,
+		Digest:       input.Digest, // Digest を登録
+	})
 	if err != nil {
-		return 0, err
+		return offset, err
 	}
 
-	info.Done = true
-	err = u.repo.PutChunkedBlobUpdateProgress(info)
-
+	err = u.StartBlobConcat(input.Name, input.Uuid, input.Digest)
 	if err != nil {
 		return offset, err
 	}
@@ -187,33 +220,41 @@ func (u BlobUseCase) StartBlobConcat(name string, uuid string, digest string) er
 	// TODO: 非同期でやりたい
 	// TODO: ストリームでやりたい。今のままでは巨大なイメージに押しつぶされる
 
-	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+	info, err := u.progressRepo.FindBlobUploadProgress(dto.FindBlobUploadProgressInput{
+		Uuid: uuid,
+	})
 	if err != nil {
 		return err
 	}
-	if !info.Done {
+	if info.Digest == "" {
 		// TODO: エラー処理。今は続ける。
-		slog.Warn("Done is false")
+		slog.Warn("Digest does not exist")
 	}
 
 	chunkNums := info.NextChunkNo
-	if chunkNums < 0 {
+	if chunkNums <= 0 {
 		return errors.New("NextChunkNo should be greater than or equal to 0")
 	}
 	var concatBlob []byte
 	for i := 0; i != chunkNums; i++ {
-		key := fmt.Sprintf("/%s/chunk/%s/%d", name, uuid, i)
-		// TODO: 永続化層にロジックを持たせているせいで苦労している。直す。
-		blobModel, err := u.repo.GetBlob("", key)
+		resp, err := u.blobRepo.FindChunkedBlob(dto.FindChunkedBlobInput{
+			Name:       name,
+			Uuid:       uuid,
+			ChunkSeqNo: i,
+		})
 		if err != nil {
 			// TODO: ちゃんとエラーハンドリング
 			slog.Warn("chunk not found")
 			return apperrors.ErrBlobNotFound
 		}
-		concatBlob = append(concatBlob, blobModel.Blob...)
+		concatBlob = append(concatBlob, resp.Blob...)
 	}
-	key := fmt.Sprintf("%s/%s", name, digest)
-	err = u.repo.UploadBlob(key, bytes.NewReader(concatBlob))
+
+	u.blobRepo.SaveBlob(dto.SaveBlobInput{
+		Name:   name,
+		Digest: digest,
+		Blob:   bytes.NewReader(concatBlob),
+	})
 	if err != nil {
 		return err
 	}
@@ -221,30 +262,33 @@ func (u BlobUseCase) StartBlobConcat(name string, uuid string, digest string) er
 }
 
 func (u BlobUseCase) DeleteBlob(input dto.DeleteBlobInput) error {
-	_, err := u.ExistsBlob(dto.GetBlobInput{
+	_, err := u.ExistsBlob(dto.FindBlobInput{
 		Name:   input.Name,
 		Digest: input.Digest,
 	})
 	if err != nil {
 		return err
 	}
-	err = u.blob.ValidateNameSpace(input.Name)
+	err = domain.ValidateName(input.Name)
 	if err != nil {
 		return err
 	}
-	return u.repo.DeleteBlob(input)
+	return u.blobRepo.DeleteBlob(input)
 }
 
-// TODO: モノリスかチャンクかの見分けをもう少しちゃんと考える
+// TODO: モノリスかラストチャンクかの見分けをもう少しちゃんと考える
 func (u BlobUseCase) IsChunkedUpload(name string, uuid string) (bool, error) {
-	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+	info, err := u.progressRepo.FindBlobUploadProgress(dto.FindBlobUploadProgressInput{
+		Uuid: uuid,
+	})
+
 	if err != nil {
 		return false, err
 	}
 	if info.ByteUploaded > 0 {
 		return true, nil
 	}
-	if info.Done {
+	if info.Digest != "" {
 		return true, nil
 	}
 	if info.NextChunkNo > 0 {
@@ -253,10 +297,12 @@ func (u BlobUseCase) IsChunkedUpload(name string, uuid string) (bool, error) {
 	return false, nil
 }
 
-func (u BlobUseCase) GetBlobUploadStatus(name string, uuid string) (int64, error) {
-	info, err := u.repo.GetChunkedBlobUploadProgress(uuid)
+func (u BlobUseCase) GetBlobUploadOffset(name string, uuid string) (int64, error) {
+	info, err := u.progressRepo.FindBlobUploadProgress(dto.FindBlobUploadProgressInput{
+		Uuid: uuid,
+	})
 	if err != nil {
 		return 0, err
 	}
-	return info.ByteUploaded, nil
+	return info.ByteUploaded - 1, nil
 }

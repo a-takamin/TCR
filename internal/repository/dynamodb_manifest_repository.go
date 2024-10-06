@@ -1,13 +1,10 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 
 	"github.com/a-takamin/tcr/internal/dto"
-	"github.com/a-takamin/tcr/internal/model"
 	"github.com/a-takamin/tcr/internal/service/domain"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -41,51 +38,6 @@ func (r ManifestRepository) getItem(ctx context.Context, params *dynamodb.GetIte
 
 func (r ManifestRepository) QueryItem(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 	return r.client.Query(ctx, params, optFns...)
-}
-
-// TODO: manifest は今は base64 エンコードされた文字列
-func (r ManifestRepository) PutManifest(metadata model.ManifestMetadata, manifest string) error {
-
-	var dbManifest Manifest
-	if domain.IsDigest(metadata.Reference) {
-		dbManifest = Manifest{
-			Name:     metadata.Name,
-			Digest:   metadata.Reference,
-			Tag:      metadata.Reference, // Digest のみの指定の場合は Tag の値を Digest にすることにする（OCI には定義されていない）
-			Manifest: manifest,
-		}
-	} else {
-		// TODO: ここでロジックが入っている問題も、引数を構造体にしたときに直す
-		// あとめちゃくちゃなので直す
-		decodedM, err := base64.StdEncoding.DecodeString(manifest)
-		var out bytes.Buffer
-		json.Indent(&out, decodedM, "", "\t")
-		b := out.Bytes()
-		if err != nil {
-			return err
-		}
-		digest, err := domain.CalcManifestDigest(b)
-		if err != nil {
-			return err
-		}
-		dbManifest = Manifest{
-			Name:     metadata.Name,
-			Digest:   digest,
-			Tag:      metadata.Reference,
-			Manifest: manifest,
-		}
-	}
-
-	item, err := attributevalue.MarshalMap(dbManifest)
-	if err != nil {
-		return err
-	}
-	_, err = r.client.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(r.manifestTableName),
-		Item:      item,
-	})
-
-	return err
 }
 
 func (r ManifestRepository) GetTags(name string) (dto.GetTagsResponse, error) {
@@ -151,138 +103,170 @@ func (r ManifestRepository) ExistsName(name string) (bool, error) {
 	return true, nil
 }
 
-func (r ManifestRepository) ExistsManifestByDigest(metadata model.ManifestMetadata) (bool, error) {
-	manifest, err := r.GetManifestByDigest(metadata)
+// リファクタ
+func (r ManifestRepository) ExistsManifest(input dto.ExistsManifestInput) (bool, error) {
+	manifest, err := r.FindManifest(dto.FindManifestInput{
+		Name:      input.Name,
+		Reference: input.Reference,
+	})
 	if err != nil {
 		return false, err
 	}
-	if manifest == "" {
+	if manifest.Name == "" {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (r ManifestRepository) ExistsManifestByTag(metadata model.ManifestMetadata) (bool, error) {
-	manifest, err := r.GetManifestByTag(metadata)
-	if err != nil {
-		return false, err
+func (r ManifestRepository) FindManifest(input dto.FindManifestInput) (dto.FindManifestOutput, error) {
+	if domain.IsDigest(input.Reference) {
+		return r.FindManifestByDigest(input)
+	} else {
+		return r.FindManifestByTag(input)
 	}
-	if manifest == "" {
-		return false, nil
-	}
-	return true, nil
 }
 
-// 経緯: もともとは GetManifest という関数の内部で Digest なのか Tag なのかを判定していたが、
-// 永続化の制御レイヤーに接続先判定のロジックを持たせないほうが良いと考えたので、ByDigest と ByTag のメソッドを作ることにした。
-func (r ManifestRepository) GetManifestByDigest(metadata model.ManifestMetadata) (string, error) {
-	input := &dynamodb.GetItemInput{
+func (r ManifestRepository) FindManifestByDigest(input dto.FindManifestInput) (dto.FindManifestOutput, error) {
+	itemInput := &dynamodb.GetItemInput{
 		TableName: aws.String(r.manifestTableName),
 		Key: map[string]types.AttributeValue{
 			"Name": &types.AttributeValueMemberS{
-				Value: metadata.Name,
+				Value: input.Name,
 			},
 			"Digest": &types.AttributeValueMemberS{
-				Value: metadata.Reference,
+				Value: input.Reference,
 			},
 		},
 	}
 
-	resp, err := r.getItem(context.TODO(), input)
+	resp, err := r.getItem(context.TODO(), itemInput)
 
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
-
-	// もともとはメソッド内で件数を確認していたが、永続化層にドメインロジックを持たせたくないと考えたので辞めた
-	// 戒めでコメントを残している。
-	// if len(resp.Item) == 0 {
-	// 	return "", apperrors.ErrManifestNotFound
-	// }
 
 	var dbManifest Manifest
 	err = attributevalue.UnmarshalMap(resp.Item, &dbManifest)
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
 
 	decordedManifest, err := base64.StdEncoding.DecodeString(dbManifest.Manifest)
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
 
-	return string(decordedManifest), nil
+	return dto.FindManifestOutput{
+		Name:     dbManifest.Name,
+		Tag:      dbManifest.Tag,
+		Digest:   dbManifest.Digest,
+		Manifest: decordedManifest,
+	}, nil
 }
 
-func (r ManifestRepository) GetManifestByTag(metadata model.ManifestMetadata) (string, error) {
+func (r ManifestRepository) FindManifestByTag(input dto.FindManifestInput) (dto.FindManifestOutput, error) {
 	keyEx := expression.KeyAnd(
-		expression.Key("Name").Equal(expression.Value(metadata.Name)),
-		expression.Key("Tag").Equal(expression.Value(metadata.Reference)),
+		expression.Key("Name").Equal(expression.Value(input.Name)),
+		expression.Key("Tag").Equal(expression.Value(input.Reference)),
 	)
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
-	input := &dynamodb.QueryInput{
+	queryInput := &dynamodb.QueryInput{
 		TableName:                 aws.String(r.manifestTableName),
 		IndexName:                 aws.String("ManifestTagIndex"),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
 	}
-	resp, err := r.QueryItem(context.TODO(), input)
+	resp, err := r.QueryItem(context.TODO(), queryInput)
 
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
 	var manifests []Manifest
 	err = attributevalue.UnmarshalListOfMaps(resp.Items, &manifests)
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
 
 	// 一見ロジックだが問題ない。
 	// Query はリストを取得してしまうという DynamoDB 固有の特性をインターフェースの制約にあうようにしているだけ
 	if len(manifests) < 1 {
-		return "", nil
+		return dto.FindManifestOutput{}, nil
 	}
 	manifest := manifests[0]
 	decordedManifest, err := base64.StdEncoding.DecodeString(manifest.Manifest)
 	if err != nil {
-		return "", err
+		return dto.FindManifestOutput{}, err
 	}
 
-	return string(decordedManifest), nil
+	return dto.FindManifestOutput{
+		Name:     manifest.Name,
+		Tag:      manifest.Tag,
+		Digest:   manifest.Digest,
+		Manifest: decordedManifest,
+	}, nil
 }
 
-func (r ManifestRepository) DeleteManifestByDigest(metadata model.ManifestMetadata) error {
-	input := &dynamodb.DeleteItemInput{
+func (r ManifestRepository) SaveManifest(input dto.SaveManifestInput) error {
+	base64Manifest := base64.StdEncoding.EncodeToString(input.Manifest)
+
+	dbManifest := Manifest{
+		Name:     input.Name,
+		Digest:   input.Digest,
+		Tag:      input.Tag,
+		Manifest: base64Manifest,
+	}
+
+	item, err := attributevalue.MarshalMap(dbManifest)
+	if err != nil {
+		return err
+	}
+	_, err = r.client.PutItem(context.TODO(), &dynamodb.PutItemInput{
+		TableName: aws.String(r.manifestTableName),
+		Item:      item,
+	})
+	return err
+}
+
+func (r ManifestRepository) DeleteManifest(input dto.DeleteManifestInput) error {
+	if domain.IsDigest(input.Reference) {
+		return r.DeleteManifestByDigest(input)
+	} else {
+		return r.DeleteManifestByDigest(input)
+	}
+}
+
+func (r ManifestRepository) DeleteManifestByDigest(input dto.DeleteManifestInput) error {
+	itemInput := &dynamodb.DeleteItemInput{
 		TableName: aws.String(r.manifestTableName),
 		Key: map[string]types.AttributeValue{
 			"Name": &types.AttributeValueMemberS{
-				Value: metadata.Name,
+				Value: input.Name,
 			},
 			"Digest": &types.AttributeValueMemberS{
-				Value: metadata.Reference,
+				Value: input.Reference,
 			},
 		},
 	}
 
-	_, err := r.client.DeleteItem(context.TODO(), input)
+	_, err := r.client.DeleteItem(context.TODO(), itemInput)
 	return err
 
 }
 
-func (r ManifestRepository) DeleteManifestByTag(metadata model.ManifestMetadata) error {
+func (r ManifestRepository) DeleteManifestByTag(input dto.DeleteManifestInput) error {
 	keyEx := expression.KeyAnd(
-		expression.Key("Name").Equal(expression.Value(metadata.Name)),
-		expression.Key("Tag").Equal(expression.Value(metadata.Reference)),
+		expression.Key("Name").Equal(expression.Value(input.Name)),
+		expression.Key("Tag").Equal(expression.Value(input.Reference)),
 	)
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
 		return err
 	}
-	input := &dynamodb.QueryInput{
+	queryInput := &dynamodb.QueryInput{
 		TableName:                 aws.String(r.manifestTableName),
 		IndexName:                 aws.String("ManifestTagIndex"),
 		ExpressionAttributeNames:  expr.Names(),
@@ -292,7 +276,7 @@ func (r ManifestRepository) DeleteManifestByTag(metadata model.ManifestMetadata)
 	if err != nil {
 		return err
 	}
-	resp, err := r.QueryItem(context.TODO(), input)
+	resp, err := r.QueryItem(context.TODO(), queryInput)
 	if err != nil {
 		return err
 	}
@@ -307,8 +291,8 @@ func (r ManifestRepository) DeleteManifestByTag(metadata model.ManifestMetadata)
 		return nil
 	}
 	manifest := manifests[0]
-	return r.DeleteManifestByDigest(model.ManifestMetadata{
-		Name:      metadata.Name,
+	return r.DeleteManifestByDigest(dto.DeleteManifestInput{
+		Name:      input.Name,
 		Reference: manifest.Digest,
 	})
 }

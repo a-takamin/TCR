@@ -2,20 +2,16 @@ package persister
 
 import (
 	"github.com/a-takamin/tcr/internal/dto"
-	"github.com/a-takamin/tcr/internal/model"
 )
 
 type ManifestPersister interface {
-	// TODO: manifest は string ではなく構造体にしてレイヤー境界の共通言語感を出したい
-	// GetManifest(metadata model.ManifestMetadata) (string, error)
-	PutManifest(metadata model.ManifestMetadata, manifest string) error
+	// リファクタ
+	// 次の段階: なるべきエンティティ（ドメインオブジェクト）を引数や戻り値で扱うようにする
+	// つまり、ユースケースにドメインオブジェクトをそのまま永続化しているように感じさせる
+	ExistsManifest(input dto.ExistsManifestInput) (bool, error)
+	FindManifest(input dto.FindManifestInput) (dto.FindManifestOutput, error)
+	SaveManifest(input dto.SaveManifestInput) error
+	DeleteManifest(input dto.DeleteManifestInput) error
+	// tag
 	GetTags(name string) (dto.GetTagsResponse, error)
-	// リファクタ後
-	ExistsName(name string) (bool, error)
-	ExistsManifestByDigest(metadata model.ManifestMetadata) (bool, error)
-	ExistsManifestByTag(metadata model.ManifestMetadata) (bool, error)
-	GetManifestByDigest(metadata model.ManifestMetadata) (string, error)
-	GetManifestByTag(metadata model.ManifestMetadata) (string, error)
-	DeleteManifestByDigest(metadata model.ManifestMetadata) error
-	DeleteManifestByTag(metadata model.ManifestMetadata) error
 }

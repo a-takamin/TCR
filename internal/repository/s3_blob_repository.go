@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/a-takamin/tcr/internal/dto"
-	"github.com/a-takamin/tcr/internal/model"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Type "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
@@ -21,7 +19,6 @@ type BlobRepository struct {
 	dClient                     *dynamodb.Client
 	bucketName                  string
 	blobUploadProgressTableName string
-	blobConcatProgressTableName string
 }
 
 type Blob struct {
@@ -30,117 +27,96 @@ type Blob struct {
 	Blob   string
 }
 
-func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dynamodb.Client, blobUploadProgressTName string, blobConcatProgressTName string) *BlobRepository {
+func NewBlobRepository(client *s3.Client, bucketName string, dynamodbClient *dynamodb.Client, blobUploadProgressTName string) *BlobRepository {
 	return &BlobRepository{
 		client:                      client,
 		bucketName:                  bucketName,
 		dClient:                     dynamodbClient,
 		blobUploadProgressTableName: blobUploadProgressTName,
-		blobConcatProgressTableName: blobConcatProgressTName,
 	}
 }
 
-func (r BlobRepository) GetBlob(name string, digest string) (model.Blob, error) {
+// Refactor
+func (r BlobRepository) ExistsBlob(input dto.ExistsBlobInput) (bool, error) {
+	_, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(input.Name + "/" + input.Digest),
+	})
+	// GetObject はオブジェクトがないときにエラーを返す
+	if err != nil {
+		var noSuchKeyErr *s3Type.NoSuchKey
+		if errors.As(err, &noSuchKeyErr) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r BlobRepository) FindBlob(input dto.FindBlobInput) (dto.FindBlobOutput, error) {
 	resp, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(name + "/" + digest),
+		Key:    aws.String(input.Name + "/" + input.Digest),
 	})
 	if err != nil {
-		return model.Blob{}, err
+		return dto.FindBlobOutput{}, err
 	}
 	blob, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return model.Blob{}, err
+		return dto.FindBlobOutput{}, err
 	}
 
-	return model.Blob{
-		Name:   name,
-		Digest: digest,
-		Blob:   blob,
+	return dto.FindBlobOutput{
+		Blob: blob,
 	}, nil
 }
 
-func (r BlobRepository) UploadBlob(key string, blob io.Reader) error {
+func (r BlobRepository) FindChunkedBlob(input dto.FindChunkedBlobInput) (dto.FindBlobOutput, error) {
+	resp, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, input.ChunkSeqNo)),
+	})
+	if err != nil {
+		return dto.FindBlobOutput{}, err
+	}
+	blob, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return dto.FindBlobOutput{}, err
+	}
+
+	return dto.FindBlobOutput{
+		Blob: blob,
+	}, nil
+}
+
+func (r BlobRepository) SaveBlob(input dto.SaveBlobInput) error {
 	// TODO: なぜか分からないが「"failed to seek body to start, request stream is not seekable”」が発生するので、
 	// 一度Blobを読み込んで再度Reader型にしている
-	b, err := io.ReadAll(blob)
+	b, err := io.ReadAll(input.Blob)
 	if err != nil {
 		return err
 	}
 	_, err = r.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(key),
+		Key:    aws.String(input.Name + "/" + input.Digest),
 		Body:   bytes.NewReader(b),
 	})
 	return err
 }
 
-func (r BlobRepository) GetChunkedBlobUploadProgress(uuid string) (dto.BlobUploadProgress, error) {
-	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(r.blobUploadProgressTableName),
-		Key: map[string]types.AttributeValue{
-			"Uuid": &types.AttributeValueMemberS{
-				Value: uuid,
-			},
-		},
-	})
-	if err != nil {
-		return dto.BlobUploadProgress{}, err
-	}
-
-	var progress dto.BlobUploadProgress
-	err = attributevalue.UnmarshalMap(resp.Item, &progress)
-	if err != nil {
-		return dto.BlobUploadProgress{}, err
-	}
-	return progress, nil
-}
-
-func (r BlobRepository) PutChunkedBlobUpdateProgress(newProgress dto.BlobUploadProgress) error {
-	item, err := attributevalue.MarshalMap(newProgress)
+func (r BlobRepository) SaveChunkedBlob(input dto.SaveChunkedBlobInput) error {
+	// TODO: なぜか分からないが「"failed to seek body to start, request stream is not seekable”」が発生するので、
+	// 一度Blobを読み込んで再度Reader型にしている
+	b, err := io.ReadAll(input.Blob)
 	if err != nil {
 		return err
 	}
-	_, err = r.dClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(r.blobUploadProgressTableName),
-		Item:      item,
-	})
-
-	return err
-}
-
-func (r BlobRepository) PutChunkedBlobConcatenateProgress(concatProgress dto.BlobConcatenateProgress) error {
-	item, err := attributevalue.MarshalMap(concatProgress)
-	if err != nil {
-		return err
-	}
-	_, err = r.dClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String(r.blobConcatProgressTableName),
-		Item:      item,
+	_, err = r.client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(fmt.Sprintf("/%s/chunk/%s/%d", input.Name, input.Uuid, input.ChunkSeqNo)),
+		Body:   bytes.NewReader(b),
 	})
 	return err
-}
-
-func (r BlobRepository) GetChunkedBlobConcatenateProgress(digest string) (dto.BlobConcatenateProgress, error) {
-	resp, err := r.dClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(r.blobConcatProgressTableName),
-		Key: map[string]types.AttributeValue{
-			"Digest": &types.AttributeValueMemberS{
-				Value: digest,
-			},
-		},
-	})
-	if err != nil {
-		return dto.BlobConcatenateProgress{}, err
-	}
-
-	var progress dto.BlobConcatenateProgress
-	err = attributevalue.UnmarshalMap(resp.Item, &progress)
-	if err != nil {
-		return dto.BlobConcatenateProgress{}, err
-	}
-
-	return progress, nil
 }
 
 func (r BlobRepository) DeleteBlob(input dto.DeleteBlobInput) error {
@@ -149,20 +125,4 @@ func (r BlobRepository) DeleteBlob(input dto.DeleteBlobInput) error {
 		Key:    aws.String(input.Name + "/" + input.Digest),
 	})
 	return err
-}
-
-func (r BlobRepository) ExistsBlob(name string, digest string) (bool, error) {
-	_, err := r.client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(name + "/" + digest),
-	})
-	// GetObject はオブジェクトがないときにエラーを返すためこれでよい
-	if err != nil {
-		var notFoundError *s3Type.NotFound
-		if errors.As(err, &notFoundError) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }

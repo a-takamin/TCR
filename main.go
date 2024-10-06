@@ -7,7 +7,6 @@ import (
 	"github.com/a-takamin/tcr/internal/client"
 	"github.com/a-takamin/tcr/internal/handler"
 	"github.com/a-takamin/tcr/internal/repository"
-	"github.com/a-takamin/tcr/internal/service/domain"
 	"github.com/a-takamin/tcr/internal/service/usecase"
 	"github.com/gin-gonic/gin"
 )
@@ -28,13 +27,13 @@ func main() {
 	if manifestTableName == "" {
 		manifestTableName = "tcr-manifest-local"
 	}
+	repositoryTableName := os.Getenv("REPOSITORY_TABLE_NAME")
+	if repositoryTableName == "" {
+		repositoryTableName = "tcr-repository-local"
+	}
 	blobUploadProgressTableName := os.Getenv("BLOB_UPLOAD_PROGRESS_TABLE_NAME")
 	if blobUploadProgressTableName == "" {
 		blobUploadProgressTableName = "tcr-blob-upload-progress-local"
-	}
-	blobConcatProgressTableName := os.Getenv("BLOB_CONCAT_PROGRESS_TABLE_NAME")
-	if blobConcatProgressTableName == "" {
-		blobConcatProgressTableName = "tcr-blob-concat-progress-local"
 	}
 
 	dynamodbClient, err := client.NewDynamoDbClient(isLocal)
@@ -50,18 +49,17 @@ func main() {
 	}
 
 	mRepo := repository.NewManifestRepository(dynamodbClient, manifestTableName)
-	bRepo := repository.NewBlobRepository(s3Client, blobStorageName, dynamodbClient, blobUploadProgressTableName, blobConcatProgressTableName)
+	bRepo := repository.NewBlobRepository(s3Client, blobStorageName, dynamodbClient, blobUploadProgressTableName)
+	rRepo := repository.NewRepositoryRepository(dynamodbClient, repositoryTableName)
+	pRepo := repository.NewBlobUploadProgressRepository(dynamodbClient, blobUploadProgressTableName)
 
-	blobDomain := domain.NewBlobDomain(bRepo)
-	mu := usecase.NewManifestUseCase(mRepo)
-	bu := usecase.NewBlobUseCase(blobDomain, bRepo)
-	tu := usecase.NewTagUseCase(mRepo)
+	mu := usecase.NewManifestUseCase(mRepo, rRepo)
+	bu := usecase.NewBlobUseCase(bRepo, pRepo, rRepo)
 
 	mh := handler.NewManifestHandler(mu)
 	bh := handler.NewBlobHandler(bu)
-	th := handler.NewTagHandler(tu)
 
-	facade := handler.NewFacadeHandler(mh, bh, th)
+	facade := handler.NewFacadeHandler(mh, bh)
 
 	r.HEAD("/v2/*remain", facade.HandleHEAD)     // end-2, end-3
 	r.GET("/v2/*remain", facade.HandleGET)       // end-2, end-3, end-8a

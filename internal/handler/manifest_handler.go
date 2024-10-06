@@ -31,7 +31,19 @@ func (h *ManifestHandler) ExistsManifestHandler(c *gin.Context, name string, ref
 
 	resp, err := h.usecase.ExistsManifest(metadata)
 	if err != nil {
-		apperrors.ErrorHanlder(c, err)
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_NAME_INVALID):
+			c.JSON(http.StatusBadRequest, apperrors.NAME_INVALID.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_LOGIC_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
 		return
 	}
 
@@ -65,6 +77,23 @@ func (h *ManifestHandler) GetManifestHandler(c *gin.Context, name string, refere
 
 	c.Header("Docker-Content-Digest", resp.Digest)
 	c.JSON(http.StatusOK, resp.Manifest)
+}
+
+func (h *ManifestHandler) GetTagsHandler(c *gin.Context, name string) {
+	tags, err := h.usecase.GetTags(name)
+	if err != nil {
+		slog.Error(err.Error())
+		switch {
+		case errors.Is(err, apperrors.TCRERR_PERSISTER_ERROR):
+			c.JSON(http.StatusInternalServerError, "")
+		case errors.Is(err, apperrors.TCRERR_NAME_NOT_FOUND):
+			c.JSON(http.StatusNotFound, apperrors.NAME_UNKNOWN.CreateResponse(""))
+		default:
+			c.JSON(http.StatusInternalServerError, "")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, tags)
 }
 
 func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, reference string) {
