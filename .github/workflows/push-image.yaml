@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '*.go'
+      - 'Dockerfile'
+      - 'go.mod'
+      - 'go.sum'
 
 permissions:
   contents: read

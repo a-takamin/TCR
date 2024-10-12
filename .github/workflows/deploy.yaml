@@ -32,8 +32,8 @@ jobs:
         
       - name: create task definition
         run: |
-          sed 's/__ACCOUNT_ID__/${{ secrets.AWS_ACCOUNT_ID }}/g' task-definition.json
-          sed 's/__IMAGE_TAG__/${{ inputs.image_tag }}/g' task-definition.json
+          sed -i 's/__ACCOUNT_ID__/${{ secrets.AWS_ACCOUNT_ID }}/g' task-definition.json
+          sed -i 's/__IMAGE_TAG__/${{ inputs.image_tag }}/g' task-definition.json
         
       - name: deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
