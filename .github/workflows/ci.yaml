@@ -27,11 +27,6 @@ jobs:
             go-mod-cache-dir
           key: go-build-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: go-build-${{ runner.os }}
-
-      # - name: check dir 2
-      #   run: |
-      #     ls go-build-cache-dir
-      #     ls go-mod-cache-dir
           
       - name: inject cache
         uses: reproducible-containers/buildkit-cache-dance@v3.1.0
@@ -51,8 +46,3 @@ jobs:
           tags: latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # - name: check dir 3
-      #   run: |
-      #     ls go-build-cache-dir
-      #     ls go-mod-cache-dir

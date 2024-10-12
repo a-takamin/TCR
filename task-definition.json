@@ -1,0 +1,93 @@
+{
+  "containerDefinitions": [
+      {
+          "name": "tcr",
+          "image": "__ACCOUNT_ID__.dkr.ecr.ap-northeast-1.amazonaws.com/tcr:__IMAGE_TAG__",
+          "cpu": 0, 
+          "memory": 1843,
+          "portMappings": [
+              {
+                  "containerPort": 8080,
+                  "hostPort": 8080,
+                  "protocol": "tcp"
+              }
+          ],
+          "essential": true,
+          "environment": [
+              {
+                  "name": "IS_LOCAL",
+                  "value": "FALSE"
+              }
+          ],
+          "mountPoints": [],
+          "volumesFrom": [],
+          "linuxParameters": {
+              "initProcessEnabled": true
+          },
+          "secrets": [
+              {
+                  "name": "BLOB_STORAGE_NAME",
+                  "valueFrom": "arn:aws:ssm:ap-northeast-1:__ACCOUNT_ID__:parameter/TCR/BLOB_STORAGE_NAME"
+              },
+              {
+                  "name": "MANIFEST_TABLE_NAME",
+                  "valueFrom": "arn:aws:ssm:ap-northeast-1:__ACCOUNT_ID__:parameter/TCR/MANIFEST_TABLE_NAME"
+              },
+              {
+                  "name": "REPOSITORY_TABLE_NAME",
+                  "valueFrom": "arn:aws:ssm:ap-northeast-1:__ACCOUNT_ID__:parameter/TCR/REPOSITORY_TABLE_NAME"
+              },
+              {
+                  "name": "BLOB_UPLOAD_PROGRESS_TABLE_NAME",
+                  "valueFrom": "arn:aws:ssm:ap-northeast-1:__ACCOUNT_ID__:parameter/TCR/BLOB_UPLOAD_PROGRESS_TABLE_NAME"
+              }
+          ],
+          "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                  "awslogs-group": "tcr-ecs",
+                  "awslogs-region": "ap-northeast-1",
+                  "awslogs-stream-prefix": "ecs"
+              }
+          },
+          "systemControls": []
+      }
+  ],
+  "family": "tcr",
+  "taskRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/tcr-ecs-task-role",
+  "executionRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/tcr-ecs-task-execution-role",
+  "networkMode": "bridge",
+  "volumes": [],
+  "status": "ACTIVE",
+  "requiresAttributes": [
+      {
+          "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+      },
+      {
+          "name": "ecs.capability.execution-role-awslogs"
+      },
+      {
+          "name": "com.amazonaws.ecs.capability.ecr-auth"
+      },
+      {
+          "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+      },
+      {
+          "name": "com.amazonaws.ecs.capability.task-iam-role"
+      },
+      {
+          "name": "com.amazonaws.ecs.capability.docker-remote-api.1.25"
+      },
+      {
+          "name": "ecs.capability.execution-role-ecr-pull"
+      },
+      {
+          "name": "ecs.capability.secrets.ssm.environment-variables"
+      }
+  ],
+  "placementConstraints": [],
+  "compatibilities": [
+      "EXTERNAL",
+      "EC2"
+  ]
+}

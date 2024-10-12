@@ -1,0 +1,43 @@
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: 'image tag'
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      image_tag: 
+        description: 'image tag. ex) latest, 20240101'
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      
+      - name: setup aws
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+        
+      - name: create task definition
+        run: |
+          sed 's/__ACCOUNT_ID__/${{ secrets.AWS_ACCOUNT_ID }}/g' task-definition.json
+          sed 's/__IMAGE_TAG__/${{ inputs.image_tag }}/g' task-definition.json
+        
+      - name: deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: task-definition.json
+          cluster: tcr
+          service: tcr

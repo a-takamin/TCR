@@ -62,8 +62,4 @@ jobs:
           tags: ${{ secrets.IMAGE_URI }}/${{ secrets.IMAGE_REPO_NAME }}:${{ env.TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-        
-      # - name: restart server
-      #   run: |
-      #     aws ecs update-service --cluster ${{ secrets.CLUSTER_NAME }} --service ${{ secrets.SERVICE_NAME }} --force-new-deployment
-        
+       

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/a-takamin/tcr/internal/client"
@@ -12,7 +13,11 @@ import (
 )
 
 func main() {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/health"},
+	}))
+	r.Use(gin.Recovery())
 	isLocal := true
 
 	env := os.Getenv("IS_LOCAL")
@@ -61,6 +66,9 @@ func main() {
 
 	facade := handler.NewFacadeHandler(mh, bh)
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "ok")
+	})
 	r.HEAD("/v2/*remain", facade.HandleHEAD)     // end-2, end-3
 	r.GET("/v2/*remain", facade.HandleGET)       // end-2, end-3, end-8a
 	r.POST("/v2/*remain", facade.HandlePOST)     // end-4a, 4b
