@@ -58,36 +58,5 @@
   "executionRoleArn": "arn:aws:iam::__ACCOUNT_ID__:role/tcr-ecs-task-execution-role",
   "networkMode": "bridge",
   "volumes": [],
-  "status": "ACTIVE",
-  "requiresAttributes": [
-      {
-          "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-      },
-      {
-          "name": "ecs.capability.execution-role-awslogs"
-      },
-      {
-          "name": "com.amazonaws.ecs.capability.ecr-auth"
-      },
-      {
-          "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-      },
-      {
-          "name": "com.amazonaws.ecs.capability.task-iam-role"
-      },
-      {
-          "name": "com.amazonaws.ecs.capability.docker-remote-api.1.25"
-      },
-      {
-          "name": "ecs.capability.execution-role-ecr-pull"
-      },
-      {
-          "name": "ecs.capability.secrets.ssm.environment-variables"
-      }
-  ],
-  "placementConstraints": [],
-  "compatibilities": [
-      "EXTERNAL",
-      "EC2"
-  ]
+  "placementConstraints": []
 }
