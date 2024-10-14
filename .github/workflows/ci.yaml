@@ -46,7 +46,7 @@ jobs:
           restore-keys: go-build-${{ runner.os }}
           
       - name: inject cache
-        uses: reproducible-containers/buildkit-cache-dance@v3.1.0
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
         with:
           cache-map: |
             {
