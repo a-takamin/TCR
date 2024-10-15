@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/a-takamin/tcr/internal/apperrors"
@@ -51,8 +52,14 @@ func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetMa
 		return dto.GetManifestResponse{}, apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
 
+	var m model.Manifest
+	err = json.Unmarshal(resp.Manifest, &m)
+	if err != nil {
+		return dto.GetManifestResponse{}, err
+	}
+
 	return dto.GetManifestResponse{
-		Manifest: resp.Manifest,
+		Manifest: m,
 		Digest:   resp.Digest,
 	}, nil
 }
