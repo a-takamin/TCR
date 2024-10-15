@@ -79,36 +79,36 @@ func (u ManifestUseCase) GetTags(name string) (dto.GetTagsResponse, error) {
 	return resp, nil
 }
 
-func (u ManifestUseCase) PutManifest(metadata model.ManifestMetadata, manifest []byte) error {
+func (u ManifestUseCase) PutManifest(metadata model.ManifestMetadata, manifest []byte) (string, error) {
 	err := domain.ValidateName(metadata.Name)
 	if err != nil {
-		return apperrors.TCRERR_NAME_INVALID
+		return "", apperrors.TCRERR_NAME_INVALID
 	}
 
 	err = domain.ValidateManifest(metadata, manifest)
 	if err != nil {
-		return apperrors.TCRERR_MANIFEST_INVALID.Wrap(err)
+		return "", apperrors.TCRERR_MANIFEST_INVALID.Wrap(err)
 	}
 
 	existsName, err := u.repoRepo.ExistsRepository(dto.ExistsRepositoryInput{
 		Name: metadata.Name,
 	})
 	if err != nil {
-		return apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
+		return "", apperrors.TCRERR_PERSISTER_ERROR.Wrap(err)
 	}
 	if !existsName {
-		return apperrors.TCRERR_NAME_NOT_FOUND
+		return "", apperrors.TCRERR_NAME_NOT_FOUND
 	}
 
 	calcdDigest, err := domain.CalcManifestDigestRefactor(manifest)
 	if err != nil {
-		return err
+		return "", err
 	}
 	isDigest := domain.IsDigest(metadata.Reference)
 	var tag string
 	if isDigest {
 		if calcdDigest != metadata.Reference {
-			return errors.New("digest does not match")
+			return "", errors.New("digest does not match")
 		}
 		tag = calcdDigest // tag がない場合は digest を tag にする
 	} else {
@@ -123,9 +123,9 @@ func (u ManifestUseCase) PutManifest(metadata model.ManifestMetadata, manifest [
 	})
 
 	if err != nil {
-		return errors.New("適切なエラーを設定してください")
+		return "", errors.New("適切なエラーを設定してください")
 	}
-	return nil
+	return calcdDigest, nil
 }
 
 func (u ManifestUseCase) DeleteManifest(metadata model.ManifestMetadata) error {

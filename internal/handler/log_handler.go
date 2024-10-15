@@ -36,6 +36,7 @@ func LogMiddleWare() gin.HandlerFunc {
 					slog.String("Content-Length", c.Writer.Header().Get("Content-Length")),
 					slog.String("Range", c.Writer.Header().Get("Range")),
 					slog.String("Content-Range", c.Writer.Header().Get("Content-Range")),
+					slog.String("Location", c.Writer.Header().Get("Location")),
 				),
 			)
 		}

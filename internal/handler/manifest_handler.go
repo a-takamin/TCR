@@ -111,7 +111,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 		return
 	}
 
-	err = h.usecase.PutManifest(metadata, body)
+	digest, err := h.usecase.PutManifest(metadata, body)
 	if err != nil {
 		slog.Error(err.Error())
 		switch {
@@ -130,6 +130,7 @@ func (h *ManifestHandler) PutManifestHandler(c *gin.Context, name string, refere
 		}
 		return
 	}
+	c.Header("Docker-Content-Digest", digest)
 	c.Redirect(http.StatusCreated, c.Request.Host+c.Request.URL.Path)
 }
 
