@@ -19,6 +19,7 @@ func LogMiddleWare() gin.HandlerFunc {
 					slog.String("Host", c.Request.Header.Get("Host")),
 					slog.String("Content-Type", c.Request.Header.Get("Content-Type")),
 					slog.String("Content-Length", c.Request.Header.Get("Content-Length")),
+					slog.String("Content-Range", c.Request.Header.Get("Content-Range")),
 					slog.String("Range", c.Request.Header.Get("Range")),
 				),
 			)
@@ -32,6 +33,7 @@ func LogMiddleWare() gin.HandlerFunc {
 			slog.Info("response metadata",
 				slog.Group("header",
 					slog.String("Docker-Content-Digest", c.Writer.Header().Get("Docker-Content-Digest")),
+					slog.String("Content-Length", c.Writer.Header().Get("Content-Length")),
 					slog.String("Range", c.Writer.Header().Get("Range")),
 					slog.String("Content-Range", c.Writer.Header().Get("Content-Range")),
 				),

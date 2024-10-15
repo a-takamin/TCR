@@ -182,6 +182,7 @@ func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context, name string, uuid
 		slog.Error(err.Error())
 		c.Header("Range", fmt.Sprintf("0-%d", offset))
 		c.JSON(http.StatusRequestedRangeNotSatisfiable, "")
+		return
 	}
 
 	c.Header("Range", fmt.Sprintf("0-%d", offset))
