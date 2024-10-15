@@ -13,12 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+    outputs:
+      app-code-change: ${{ steps.filter.outputs.app-code-change }}
     steps:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            code-change:
+            app-code-change:
               - '**.go'
               - 'go.mod'
               - 'go.sum'
@@ -27,7 +29,7 @@ jobs:
   build-image:
     runs-on: ubuntu-latest
     needs: check-source-change
-    if: ${{ needs.check-source-change.outputs.code-change == 'true'}}
+    if: ${{ needs.check-source-change.outputs.app-code-change == 'true'}}
     steps:
       - name: checkout
         uses: actions/checkout@v4
