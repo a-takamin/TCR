@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -12,11 +13,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func init() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+}
+
 func main() {
 	r := gin.New()
 	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{
 		SkipPaths: []string{"/health"},
 	}))
+	r.Use(handler.LogMiddleWare())
 	r.Use(gin.Recovery())
 	isLocal := true
 
