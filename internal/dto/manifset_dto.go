@@ -6,7 +6,7 @@ type GetTagsResponse struct {
 }
 
 type GetManifestResponse struct {
-	Manifest string
+	Manifest []byte
 	Digest   string
 }
 

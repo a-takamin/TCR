@@ -52,7 +52,7 @@ func (u ManifestUseCase) GetManifest(metadata model.ManifestMetadata) (dto.GetMa
 	}
 
 	return dto.GetManifestResponse{
-		Manifest: string(resp.Manifest),
+		Manifest: resp.Manifest,
 		Digest:   resp.Digest,
 	}, nil
 }
