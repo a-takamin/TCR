@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/a-takamin/tcr/internal/apperrors"
 	"github.com/a-takamin/tcr/internal/dto"
@@ -155,7 +156,18 @@ func (h *BlobHandler) UploadBlobHandler(c *gin.Context, name string, uuid string
 }
 
 func (h *BlobHandler) UploadChunkedBlobHandler(c *gin.Context, name string, uuid string) {
-	ContentLength := c.Request.ContentLength
+	ContentLengthHeaderVal := c.Request.Header.Get("Content-Length")
+	var ContentLength int64
+	if ContentLengthHeaderVal == "" {
+		ContentLength = 0
+	} else {
+		var err error
+		ContentLength, err = strconv.ParseInt(ContentLengthHeaderVal, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, err)
+			return
+		}
+	}
 	ContentRange := c.Request.Header.Get("Content-Range")
 	if ContentRange == "" {
 		ContentRange = fmt.Sprintf("0-%d", ContentLength)

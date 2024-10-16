@@ -129,14 +129,17 @@ func (u BlobUseCase) UploadChunkedBlob(input dto.UploadChunkedBlobInput) (int64,
 	}
 	err = domain.ValidateContentRange(input.ContentRange)
 	if err != nil {
+		slog.Error(err.Error() + input.ContentRange)
 		return 0, err
 	}
 	startByte, err := domain.GetContentRangeStart(input.ContentRange)
 	if err != nil {
+		slog.Error(err.Error() + input.ContentRange)
 		return 0, err
 	}
 	endByte, err := domain.GetContentRangeEnd(input.ContentRange)
 	if err != nil {
+		slog.Error(err.Error() + input.ContentRange)
 		return 0, err
 	}
 
